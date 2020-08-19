@@ -16,7 +16,7 @@ PcmSuf = _rdict.pcm
 
 CXXFLAGS += $(ROOTCFLAGS) -Wno-write-strings -D_FILE_OFFSET_BITS=64 -DDROP_CGAL -I. -Iexternal -Iexternal/tcl
 DELPHES_LIBS = $(shell $(RC) --libs) -lEG $(SYSLIBS)
-DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml  $(SYSLIBS)
+DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml $(SYSLIBS)
 
 ifneq ($(CMSSW_FWLITE_INCLUDE_PATH),)
 HAS_CMSSW = true
@@ -31,17 +31,46 @@ endif
 OPT_LIBS += -lGenVector -lFWCoreFWLite -lDataFormatsFWLite -lDataFormatsCommon -lDataFormatsPatCandidates -lDataFormatsLuminosity -lSimDataFormatsGeneratorProducts -lCommonToolsUtils -lDataFormatsCommon
 endif
 
+# check consistency
+ifneq ($(PROMC),)
+ifneq ($(PROIO),)
+$(error Attention:  PROMC and PROIO env. variables are set simultaneously. You cannot compile ProMC and ProIO readers in one compilation process due to an inconsistency in protocol buffers libraries. The suggestion is to compile these two readers in two steps. First unset PROIO variable and then \"configure; make\". After this, unset PROMC, set PROIO,  and run \"configure; make\". During runs, make sure shared libraries are set correctly.)
+endif
+endif
+
 ifneq ($(PROMC),)
 HAS_PROMC = true
+$(info ProMC event reader is requested)
 CXXFLAGS += -I$(PROMC)/include -I$(PROMC)/src
 OPT_LIBS += -L$(PROMC)/lib -lpromc -lprotoc -lprotobuf -lprotobuf-lite -lcbook -lz
+endif
+
+ifneq ($(PROIO),)
+HAS_PROIO = true
+$(info ProIO reader is requested)
+ifeq ($(PROTOBUF),)
+$(error but PROTOBUF variable is not set.)
+endif
+PROTOBUF_FILE=$(PROTOBUF)/lib/libprotobuf.a
+ifeq ("$(wildcard $(PROTOBUF_FILE))","")
+$(error PROTOBUF variable is set, but it does not point to valid $(PROTOBUF_FILE))
+endif
+ifeq ($(LZ4),)
+$(error but LZ4 variable is not set.)
+endif
+LZ4_FILE=$(LZ4)/lib/liblz4.so
+ifeq ("$(wildcard $(LZ4_FILE))","")
+$(error LZ4 variable is set,  but it does not point to valid $(LZ4_FILE))
+endif
+CXXFLAGS += -I$(PROIO)/include -I$(PROTOBUF)/include -I$(LZ4)/include -I$(PROIO)/src
+OPT_LIBS += -L$(PROTOBUF)/lib -lprotobuf -L$(PROIO)/lib -lproio -lproio.pb -lz -L$(LZ4)/lib -llz4
 endif
 
 ifeq ($(HAS_PYTHIA8),true)
 ifneq ($(PYTHIA8),)
 CXXFLAGS += -I$(PYTHIA8)/include
 CXXFLAGS += -I$(PYTHIA8)/include/Pythia8
-OPT_LIBS += -L$(PYTHIA8)/lib -lpythia8 -ldl
+OPT_LIBS += -L$(PYTHIA8)/lib -lpythia8 -ldl -lz
 endif
 endif
 
@@ -59,7 +88,7 @@ DELPHESLIB = libDelphes.lib
 DISPLAY = libDelphesDisplay.$(DllSuf)
 DISPLAYLIB = libDelphesDisplay.lib
 
-VERSION = $(shell cat VERSION)
+VERSION = x.y.z
 DISTDIR = Delphes-$(VERSION)
 DISTTAR = $(DISTDIR).tar.gz
 
@@ -75,41 +104,41 @@ tmp/converters/hepmc2pileup.$(ObjSuf): \
 	classes/DelphesFactory.h \
 	classes/DelphesHepMCReader.h \
 	classes/DelphesPileUpWriter.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 lhco2root$(ExeSuf): \
 	tmp/converters/lhco2root.$(ObjSuf)
 
 tmp/converters/lhco2root.$(ObjSuf): \
 	converters/lhco2root.cpp \
-	modules/Delphes.h \
-	classes/DelphesStream.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	classes/DelphesStream.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 pileup2root$(ExeSuf): \
 	tmp/converters/pileup2root.$(ObjSuf)
 
 tmp/converters/pileup2root.$(ObjSuf): \
 	converters/pileup2root.cpp \
-	classes/DelphesStream.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	classes/DelphesStream.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 root2lhco$(ExeSuf): \
 	tmp/converters/root2lhco.$(ObjSuf)
 
 tmp/converters/root2lhco.$(ObjSuf): \
 	converters/root2lhco.cpp \
 	classes/DelphesClasses.h \
-	external/ExRootAnalysis/ExRootTreeReader.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootProgressBar.h \
+	external/ExRootAnalysis/ExRootTreeReader.h
 root2pileup$(ExeSuf): \
 	tmp/converters/root2pileup.$(ObjSuf)
 
@@ -117,8 +146,8 @@ tmp/converters/root2pileup.$(ObjSuf): \
 	converters/root2pileup.cpp \
 	classes/DelphesClasses.h \
 	classes/DelphesPileUpWriter.h \
-	external/ExRootAnalysis/ExRootTreeReader.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootProgressBar.h \
+	external/ExRootAnalysis/ExRootTreeReader.h
 stdhep2pileup$(ExeSuf): \
 	tmp/converters/stdhep2pileup.$(ObjSuf)
 
@@ -126,40 +155,29 @@ tmp/converters/stdhep2pileup.$(ObjSuf): \
 	converters/stdhep2pileup.cpp \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	classes/DelphesSTDHEPReader.h \
 	classes/DelphesPileUpWriter.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	classes/DelphesSTDHEPReader.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 CaloGrid$(ExeSuf): \
 	tmp/examples/CaloGrid.$(ObjSuf)
 
 tmp/examples/CaloGrid.$(ObjSuf): \
 	examples/CaloGrid.cpp \
-	display/Delphes3DGeometry.h \
+	external/ExRootAnalysis/ExRootConfReader.h \
 	classes/DelphesClasses.h \
-	external/ExRootAnalysis/ExRootConfReader.h
+	display/Delphes3DGeometry.h
 Example1$(ExeSuf): \
 	tmp/examples/Example1.$(ObjSuf)
 
 tmp/examples/Example1.$(ObjSuf): \
 	examples/Example1.cpp \
 	classes/DelphesClasses.h \
+	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootTreeBranch.h \
 	external/ExRootAnalysis/ExRootTreeReader.h \
 	external/ExRootAnalysis/ExRootTreeWriter.h \
-	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootUtilities.h
-Validation$(ExeSuf): \
-	tmp/examples/Validation.$(ObjSuf)
-
-tmp/examples/Validation.$(ObjSuf): \
-	examples/Validation.cpp \
-	classes/DelphesClasses.h \
-	external/ExRootAnalysis/ExRootTreeReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
-	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootResult.h \
 	external/ExRootAnalysis/ExRootUtilities.h
 EXECUTABLE +=  \
 	hepmc2pileup$(ExeSuf) \
@@ -169,8 +187,7 @@ EXECUTABLE +=  \
 	root2pileup$(ExeSuf) \
 	stdhep2pileup$(ExeSuf) \
 	CaloGrid$(ExeSuf) \
-	Example1$(ExeSuf) \
-	Validation$(ExeSuf)
+	Example1$(ExeSuf)
 
 EXECUTABLE_OBJ +=  \
 	tmp/converters/hepmc2pileup.$(ObjSuf) \
@@ -180,58 +197,57 @@ EXECUTABLE_OBJ +=  \
 	tmp/converters/root2pileup.$(ObjSuf) \
 	tmp/converters/stdhep2pileup.$(ObjSuf) \
 	tmp/examples/CaloGrid.$(ObjSuf) \
-	tmp/examples/Example1.$(ObjSuf) \
-	tmp/examples/Validation.$(ObjSuf)
+	tmp/examples/Example1.$(ObjSuf)
 
 DelphesHepMC$(ExeSuf): \
 	tmp/readers/DelphesHepMC.$(ObjSuf)
 
 tmp/readers/DelphesHepMC.$(ObjSuf): \
 	readers/DelphesHepMC.cpp \
-	modules/Delphes.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesHepMCReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 DelphesLHEF$(ExeSuf): \
 	tmp/readers/DelphesLHEF.$(ObjSuf)
 
 tmp/readers/DelphesLHEF.$(ObjSuf): \
 	readers/DelphesLHEF.cpp \
-	modules/Delphes.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesLHEFReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 DelphesROOT$(ExeSuf): \
 	tmp/readers/DelphesROOT.$(ObjSuf)
 
 tmp/readers/DelphesROOT.$(ObjSuf): \
 	readers/DelphesROOT.cpp \
-	modules/Delphes.h \
-	classes/DelphesStream.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
-	external/ExRootAnalysis/ExRootTreeReader.h \
+	classes/DelphesStream.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeReader.h \
+	external/ExRootAnalysis/ExRootTreeWriter.h
 DelphesSTDHEP$(ExeSuf): \
 	tmp/readers/DelphesSTDHEP.$(ObjSuf)
 
 tmp/readers/DelphesSTDHEP.$(ObjSuf): \
 	readers/DelphesSTDHEP.cpp \
-	modules/Delphes.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesSTDHEPReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 EXECUTABLE +=  \
 	DelphesHepMC$(ExeSuf) \
 	DelphesLHEF$(ExeSuf) \
@@ -250,13 +266,13 @@ DelphesCMSFWLite$(ExeSuf): \
 
 tmp/readers/DelphesCMSFWLite.$(ObjSuf): \
 	readers/DelphesCMSFWLite.cpp \
-	modules/Delphes.h \
-	classes/DelphesStream.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	classes/DelphesStream.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 EXECUTABLE +=  \
 	DelphesCMSFWLite$(ExeSuf)
 
@@ -271,18 +287,39 @@ DelphesProMC$(ExeSuf): \
 
 tmp/readers/DelphesProMC.$(ObjSuf): \
 	readers/DelphesProMC.cpp \
-	modules/Delphes.h \
-	classes/DelphesStream.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	classes/DelphesStream.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 EXECUTABLE +=  \
 	DelphesProMC$(ExeSuf)
 
 EXECUTABLE_OBJ +=  \
 	tmp/readers/DelphesProMC.$(ObjSuf)
+
+endif
+
+ifeq ($(HAS_PROIO),true)
+DelphesProIO$(ExeSuf): \
+	tmp/readers/DelphesProIO.$(ObjSuf)
+
+tmp/readers/DelphesProIO.$(ObjSuf): \
+	readers/DelphesProIO.cpp \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesStream.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
+	external/ExRootAnalysis/ExRootTreeBranch.h \
+	external/ExRootAnalysis/ExRootTreeWriter.h
+EXECUTABLE +=  \
+	DelphesProIO$(ExeSuf)
+
+EXECUTABLE_OBJ +=  \
+	tmp/readers/DelphesProIO.$(ObjSuf)
 
 endif
 
@@ -292,13 +329,13 @@ DelphesPythia8$(ExeSuf): \
 
 tmp/readers/DelphesPythia8.$(ObjSuf): \
 	readers/DelphesPythia8.cpp \
-	modules/Delphes.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesLHEFReader.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
+	modules/Delphes.h \
+	external/ExRootAnalysis/ExRootProgressBar.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootProgressBar.h
+	external/ExRootAnalysis/ExRootTreeWriter.h
 EXECUTABLE +=  \
 	DelphesPythia8$(ExeSuf)
 
@@ -357,10 +394,13 @@ tmp/modules/ModulesDict.$(SrcSuf): \
 	modules/EnergySmearing.h \
 	modules/MomentumSmearing.h \
 	modules/TrackSmearing.h \
+	modules/TrackCovariance.h \
 	modules/ImpactParameterSmearing.h \
 	modules/TimeSmearing.h \
 	modules/SimpleCalorimeter.h \
+	modules/DenseTrackFilter.h \
 	modules/Calorimeter.h \
+	modules/DualReadoutCalorimeter.h \
 	modules/OldCalorimeter.h \
 	modules/Isolation.h \
 	modules/EnergyScale.h \
@@ -377,6 +417,7 @@ tmp/modules/ModulesDict.$(SrcSuf): \
 	modules/TrackPileUpSubtractor.h \
 	modules/TaggingParticlesSkimmer.h \
 	modules/PileUpJetID.h \
+	modules/PhotonID.h \
 	modules/ConstituentFilter.h \
 	modules/StatusPidFilter.h \
 	modules/PdgCodeFilter.h \
@@ -390,6 +431,8 @@ tmp/modules/ModulesDict.$(SrcSuf): \
 	modules/VertexSorter.h \
 	modules/VertexFinder.h \
 	modules/VertexFinderDA4D.h \
+	modules/DecayFilter.h \
+	modules/ParticleDensity.h \
 	modules/ExampleModule.h
 tmp/modules/ModulesDict$(PcmSuf): \
 	tmp/modules/ModulesDict.$(SrcSuf)
@@ -454,7 +497,8 @@ tmp/classes/DelphesFactory.$(ObjSuf): \
 	external/ExRootAnalysis/ExRootTreeBranch.h
 tmp/classes/DelphesFormula.$(ObjSuf): \
 	classes/DelphesFormula.$(SrcSuf) \
-	classes/DelphesFormula.h
+	classes/DelphesFormula.h \
+	classes/DelphesClasses.h
 tmp/classes/DelphesHepMCReader.$(ObjSuf): \
 	classes/DelphesHepMCReader.$(SrcSuf) \
 	classes/DelphesHepMCReader.h \
@@ -473,21 +517,24 @@ tmp/classes/DelphesModule.$(ObjSuf): \
 	classes/DelphesModule.$(SrcSuf) \
 	classes/DelphesModule.h \
 	classes/DelphesFactory.h \
-	external/ExRootAnalysis/ExRootTreeReader.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h \
-	external/ExRootAnalysis/ExRootTreeWriter.h \
-	external/ExRootAnalysis/ExRootResult.h
+	external/ExRootAnalysis/ExRootTreeReader.h \
+	external/ExRootAnalysis/ExRootTreeWriter.h
 tmp/classes/DelphesPileUpReader.$(ObjSuf): \
 	classes/DelphesPileUpReader.$(SrcSuf) \
-	classes/DelphesPileUpReader.h
+	classes/DelphesPileUpReader.h \
+	classes/DelphesXDRReader.h
 tmp/classes/DelphesPileUpWriter.$(ObjSuf): \
 	classes/DelphesPileUpWriter.$(SrcSuf) \
-	classes/DelphesPileUpWriter.h
+	classes/DelphesPileUpWriter.h \
+	classes/DelphesXDRWriter.h
 tmp/classes/DelphesSTDHEPReader.$(ObjSuf): \
 	classes/DelphesSTDHEPReader.$(SrcSuf) \
 	classes/DelphesSTDHEPReader.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
+	classes/DelphesXDRReader.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h
 tmp/classes/DelphesStream.$(ObjSuf): \
 	classes/DelphesStream.$(SrcSuf) \
@@ -495,6 +542,12 @@ tmp/classes/DelphesStream.$(ObjSuf): \
 tmp/classes/DelphesTF2.$(ObjSuf): \
 	classes/DelphesTF2.$(SrcSuf) \
 	classes/DelphesTF2.h
+tmp/classes/DelphesXDRReader.$(ObjSuf): \
+	classes/DelphesXDRReader.$(SrcSuf) \
+	classes/DelphesXDRReader.h
+tmp/classes/DelphesXDRWriter.$(ObjSuf): \
+	classes/DelphesXDRWriter.$(SrcSuf) \
+	classes/DelphesXDRWriter.h
 tmp/external/ExRootAnalysis/ExRootConfReader.$(ObjSuf): \
 	external/ExRootAnalysis/ExRootConfReader.$(SrcSuf) \
 	external/ExRootAnalysis/ExRootConfReader.h \
@@ -581,15 +634,23 @@ tmp/external/Hector/H_VerticalKicker.$(ObjSuf): \
 	external/Hector/H_VerticalKicker.$(SrcSuf)
 tmp/external/Hector/H_VerticalQuadrupole.$(ObjSuf): \
 	external/Hector/H_VerticalQuadrupole.$(SrcSuf)
+tmp/external/TrackCovariance/ObsTrk.$(ObjSuf): \
+	external/TrackCovariance/ObsTrk.$(SrcSuf)
+tmp/external/TrackCovariance/SolGeom.$(ObjSuf): \
+	external/TrackCovariance/SolGeom.$(SrcSuf)
+tmp/external/TrackCovariance/SolGridCov.$(ObjSuf): \
+	external/TrackCovariance/SolGridCov.$(SrcSuf)
+tmp/external/TrackCovariance/SolTrack.$(ObjSuf): \
+	external/TrackCovariance/SolTrack.$(SrcSuf)
 tmp/modules/AngularSmearing.$(ObjSuf): \
 	modules/AngularSmearing.$(SrcSuf) \
 	modules/AngularSmearing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/BTagging.$(ObjSuf): \
 	modules/BTagging.$(SrcSuf) \
 	modules/BTagging.h \
@@ -602,268 +663,313 @@ tmp/modules/BeamSpotFilter.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Calorimeter.$(ObjSuf): \
 	modules/Calorimeter.$(SrcSuf) \
 	modules/Calorimeter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Cloner.$(ObjSuf): \
 	modules/Cloner.$(SrcSuf) \
 	modules/Cloner.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/ConstituentFilter.$(ObjSuf): \
 	modules/ConstituentFilter.$(SrcSuf) \
 	modules/ConstituentFilter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
+tmp/modules/DecayFilter.$(ObjSuf): \
+	modules/DecayFilter.$(SrcSuf) \
+	modules/DecayFilter.h \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesFormula.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Delphes.$(ObjSuf): \
 	modules/Delphes.$(SrcSuf) \
 	modules/Delphes.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootFilter.h \
 	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootConfReader.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/ExRootAnalysis/ExRootTreeWriter.h
+tmp/modules/DenseTrackFilter.$(ObjSuf): \
+	modules/DenseTrackFilter.$(SrcSuf) \
+	modules/DenseTrackFilter.h \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesFormula.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h
+tmp/modules/DualReadoutCalorimeter.$(ObjSuf): \
+	modules/DualReadoutCalorimeter.$(SrcSuf) \
+	modules/DualReadoutCalorimeter.h \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesFormula.h \
+	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootClassifier.h
 tmp/modules/Efficiency.$(ObjSuf): \
 	modules/Efficiency.$(SrcSuf) \
 	modules/Efficiency.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/EnergyScale.$(ObjSuf): \
 	modules/EnergyScale.$(SrcSuf) \
 	modules/EnergyScale.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/EnergySmearing.$(ObjSuf): \
 	modules/EnergySmearing.$(SrcSuf) \
 	modules/EnergySmearing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/ExampleModule.$(ObjSuf): \
 	modules/ExampleModule.$(SrcSuf) \
 	modules/ExampleModule.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Hector.$(ObjSuf): \
 	modules/Hector.$(SrcSuf) \
 	modules/Hector.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootFilter.h \
 	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/Hector/H_BeamLine.h \
-	external/Hector/H_RecRPObject.h \
-	external/Hector/H_BeamParticle.h
+	external/Hector/H_BeamParticle.h \
+	external/Hector/H_RecRPObject.h
 tmp/modules/IdentificationMap.$(ObjSuf): \
 	modules/IdentificationMap.$(SrcSuf) \
 	modules/IdentificationMap.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/ImpactParameterSmearing.$(ObjSuf): \
 	modules/ImpactParameterSmearing.$(SrcSuf) \
 	modules/ImpactParameterSmearing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Isolation.$(ObjSuf): \
 	modules/Isolation.$(SrcSuf) \
 	modules/Isolation.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/JetFakeParticle.$(ObjSuf): \
 	modules/JetFakeParticle.$(SrcSuf) \
 	modules/JetFakeParticle.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/JetFlavorAssociation.$(ObjSuf): \
 	modules/JetFlavorAssociation.$(SrcSuf) \
 	modules/JetFlavorAssociation.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/JetPileUpSubtractor.$(ObjSuf): \
 	modules/JetPileUpSubtractor.$(SrcSuf) \
 	modules/JetPileUpSubtractor.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/LeptonDressing.$(ObjSuf): \
 	modules/LeptonDressing.$(SrcSuf) \
 	modules/LeptonDressing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Merger.$(ObjSuf): \
 	modules/Merger.$(SrcSuf) \
 	modules/Merger.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/MomentumSmearing.$(ObjSuf): \
 	modules/MomentumSmearing.$(SrcSuf) \
 	modules/MomentumSmearing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/OldCalorimeter.$(ObjSuf): \
 	modules/OldCalorimeter.$(SrcSuf) \
 	modules/OldCalorimeter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
+tmp/modules/ParticleDensity.$(ObjSuf): \
+	modules/ParticleDensity.$(SrcSuf) \
+	modules/ParticleDensity.h \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesFormula.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/ParticlePropagator.$(ObjSuf): \
 	modules/ParticlePropagator.$(SrcSuf) \
 	modules/ParticlePropagator.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/PdgCodeFilter.$(ObjSuf): \
 	modules/PdgCodeFilter.$(SrcSuf) \
 	modules/PdgCodeFilter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/PhotonConversions.$(ObjSuf): \
 	modules/PhotonConversions.$(SrcSuf) \
 	modules/PhotonConversions.h \
 	classes/DelphesClasses.h \
-	classes/DelphesFactory.h \
 	classes/DelphesCylindricalFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	classes/DelphesFactory.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
+tmp/modules/PhotonID.$(ObjSuf): \
+	modules/PhotonID.$(SrcSuf) \
+	modules/PhotonID.h \
+	classes/DelphesClasses.h \
+	classes/DelphesFactory.h \
+	classes/DelphesFormula.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/PileUpJetID.$(ObjSuf): \
 	modules/PileUpJetID.$(SrcSuf) \
 	modules/PileUpJetID.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/PileUpMerger.$(ObjSuf): \
 	modules/PileUpMerger.$(SrcSuf) \
 	modules/PileUpMerger.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	classes/DelphesTF2.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	classes/DelphesTF2.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/PileUpMergerPythia8.$(ObjSuf): \
 	modules/PileUpMergerPythia8.$(SrcSuf) \
 	modules/PileUpMergerPythia8.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
-	classes/DelphesTF2.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	classes/DelphesTF2.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/RecoPuFilter.$(ObjSuf): \
 	modules/RecoPuFilter.$(SrcSuf) \
 	modules/RecoPuFilter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/SimpleCalorimeter.$(ObjSuf): \
 	modules/SimpleCalorimeter.$(SrcSuf) \
 	modules/SimpleCalorimeter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/StatusPidFilter.$(ObjSuf): \
 	modules/StatusPidFilter.$(SrcSuf) \
 	modules/StatusPidFilter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/TaggingParticlesSkimmer.$(ObjSuf): \
 	modules/TaggingParticlesSkimmer.$(SrcSuf) \
 	modules/TaggingParticlesSkimmer.h \
@@ -871,9 +977,9 @@ tmp/modules/TaggingParticlesSkimmer.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/TauTagging.$(ObjSuf): \
 	modules/TauTagging.$(SrcSuf) \
 	modules/TauTagging.h \
@@ -886,9 +992,9 @@ tmp/modules/TimeSmearing.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/TrackCountingBTagging.$(ObjSuf): \
 	modules/TrackCountingBTagging.$(SrcSuf) \
 	modules/TrackCountingBTagging.h \
@@ -901,36 +1007,43 @@ tmp/modules/TrackCountingTauTagging.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
+tmp/modules/TrackCovariance.$(ObjSuf): \
+	modules/TrackCovariance.$(SrcSuf) \
+	modules/TrackCovariance.h \
+	classes/DelphesClasses.h \
+	external/TrackCovariance/SolGeom.h \
+	external/TrackCovariance/SolGridCov.h \
+	external/TrackCovariance/ObsTrk.h
 tmp/modules/TrackPileUpSubtractor.$(ObjSuf): \
 	modules/TrackPileUpSubtractor.$(SrcSuf) \
 	modules/TrackPileUpSubtractor.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/TrackSmearing.$(ObjSuf): \
 	modules/TrackSmearing.$(SrcSuf) \
 	modules/TrackSmearing.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/TreeWriter.$(ObjSuf): \
 	modules/TreeWriter.$(SrcSuf) \
 	modules/TreeWriter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootFilter.h \
 	external/ExRootAnalysis/ExRootClassifier.h \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/ExRootAnalysis/ExRootTreeBranch.h
 tmp/modules/UniqueObjectFinder.$(ObjSuf): \
 	modules/UniqueObjectFinder.$(SrcSuf) \
@@ -938,9 +1051,9 @@ tmp/modules/UniqueObjectFinder.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/VertexFinder.$(ObjSuf): \
 	modules/VertexFinder.$(SrcSuf) \
 	modules/VertexFinder.h \
@@ -948,9 +1061,9 @@ tmp/modules/VertexFinder.$(ObjSuf): \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/VertexFinderDA4D.$(ObjSuf): \
 	modules/VertexFinderDA4D.$(SrcSuf) \
 	modules/VertexFinderDA4D.h \
@@ -958,9 +1071,9 @@ tmp/modules/VertexFinderDA4D.$(ObjSuf): \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/VertexSorter.$(ObjSuf): \
 	modules/VertexSorter.$(SrcSuf) \
 	modules/VertexSorter.h \
@@ -968,18 +1081,18 @@ tmp/modules/VertexSorter.$(ObjSuf): \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
 	classes/DelphesPileUpReader.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 tmp/modules/Weighter.$(ObjSuf): \
 	modules/Weighter.$(SrcSuf) \
 	modules/Weighter.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h
 DELPHES_OBJ +=  \
 	tmp/classes/DelphesClasses.$(ObjSuf) \
 	tmp/classes/DelphesCylindricalFormula.$(ObjSuf) \
@@ -993,6 +1106,8 @@ DELPHES_OBJ +=  \
 	tmp/classes/DelphesSTDHEPReader.$(ObjSuf) \
 	tmp/classes/DelphesStream.$(ObjSuf) \
 	tmp/classes/DelphesTF2.$(ObjSuf) \
+	tmp/classes/DelphesXDRReader.$(ObjSuf) \
+	tmp/classes/DelphesXDRWriter.$(ObjSuf) \
 	tmp/external/ExRootAnalysis/ExRootConfReader.$(ObjSuf) \
 	tmp/external/ExRootAnalysis/ExRootFilter.$(ObjSuf) \
 	tmp/external/ExRootAnalysis/ExRootProgressBar.$(ObjSuf) \
@@ -1029,13 +1144,20 @@ DELPHES_OBJ +=  \
 	tmp/external/Hector/H_TransportMatrices.$(ObjSuf) \
 	tmp/external/Hector/H_VerticalKicker.$(ObjSuf) \
 	tmp/external/Hector/H_VerticalQuadrupole.$(ObjSuf) \
+	tmp/external/TrackCovariance/ObsTrk.$(ObjSuf) \
+	tmp/external/TrackCovariance/SolGeom.$(ObjSuf) \
+	tmp/external/TrackCovariance/SolGridCov.$(ObjSuf) \
+	tmp/external/TrackCovariance/SolTrack.$(ObjSuf) \
 	tmp/modules/AngularSmearing.$(ObjSuf) \
 	tmp/modules/BTagging.$(ObjSuf) \
 	tmp/modules/BeamSpotFilter.$(ObjSuf) \
 	tmp/modules/Calorimeter.$(ObjSuf) \
 	tmp/modules/Cloner.$(ObjSuf) \
 	tmp/modules/ConstituentFilter.$(ObjSuf) \
+	tmp/modules/DecayFilter.$(ObjSuf) \
 	tmp/modules/Delphes.$(ObjSuf) \
+	tmp/modules/DenseTrackFilter.$(ObjSuf) \
+	tmp/modules/DualReadoutCalorimeter.$(ObjSuf) \
 	tmp/modules/Efficiency.$(ObjSuf) \
 	tmp/modules/EnergyScale.$(ObjSuf) \
 	tmp/modules/EnergySmearing.$(ObjSuf) \
@@ -1051,9 +1173,11 @@ DELPHES_OBJ +=  \
 	tmp/modules/Merger.$(ObjSuf) \
 	tmp/modules/MomentumSmearing.$(ObjSuf) \
 	tmp/modules/OldCalorimeter.$(ObjSuf) \
+	tmp/modules/ParticleDensity.$(ObjSuf) \
 	tmp/modules/ParticlePropagator.$(ObjSuf) \
 	tmp/modules/PdgCodeFilter.$(ObjSuf) \
 	tmp/modules/PhotonConversions.$(ObjSuf) \
+	tmp/modules/PhotonID.$(ObjSuf) \
 	tmp/modules/PileUpJetID.$(ObjSuf) \
 	tmp/modules/PileUpMerger.$(ObjSuf) \
 	tmp/modules/RecoPuFilter.$(ObjSuf) \
@@ -1064,6 +1188,7 @@ DELPHES_OBJ +=  \
 	tmp/modules/TimeSmearing.$(ObjSuf) \
 	tmp/modules/TrackCountingBTagging.$(ObjSuf) \
 	tmp/modules/TrackCountingTauTagging.$(ObjSuf) \
+	tmp/modules/TrackCovariance.$(ObjSuf) \
 	tmp/modules/TrackPileUpSubtractor.$(ObjSuf) \
 	tmp/modules/TrackSmearing.$(ObjSuf) \
 	tmp/modules/TreeWriter.$(ObjSuf) \
@@ -1261,12 +1386,22 @@ tmp/external/fastjet/contribs/Nsubjettiness/TauComponents.$(ObjSuf): \
 	external/fastjet/contribs/Nsubjettiness/TauComponents.$(SrcSuf)
 tmp/external/fastjet/contribs/Nsubjettiness/XConePlugin.$(ObjSuf): \
 	external/fastjet/contribs/Nsubjettiness/XConePlugin.$(SrcSuf)
+tmp/external/fastjet/contribs/RecursiveTools/BottomUpSoftDrop.$(ObjSuf): \
+	external/fastjet/contribs/RecursiveTools/BottomUpSoftDrop.$(SrcSuf) \
+	external/fastjet/ClusterSequenceActiveAreaExplicitGhosts.hh \
+	external/fastjet/Selector.hh \
+	external/fastjet/config.h
+tmp/external/fastjet/contribs/RecursiveTools/IteratedSoftDrop.$(ObjSuf): \
+	external/fastjet/contribs/RecursiveTools/IteratedSoftDrop.$(SrcSuf)
 tmp/external/fastjet/contribs/RecursiveTools/ModifiedMassDropTagger.$(ObjSuf): \
 	external/fastjet/contribs/RecursiveTools/ModifiedMassDropTagger.$(SrcSuf) \
 	external/fastjet/JetDefinition.hh \
 	external/fastjet/ClusterSequenceAreaBase.hh
 tmp/external/fastjet/contribs/RecursiveTools/Recluster.$(ObjSuf): \
 	external/fastjet/contribs/RecursiveTools/Recluster.$(SrcSuf)
+tmp/external/fastjet/contribs/RecursiveTools/RecursiveSoftDrop.$(ObjSuf): \
+	external/fastjet/contribs/RecursiveTools/RecursiveSoftDrop.$(SrcSuf) \
+	external/fastjet/ClusterSequence.hh
 tmp/external/fastjet/contribs/RecursiveTools/RecursiveSymmetryCutBase.$(ObjSuf): \
 	external/fastjet/contribs/RecursiveTools/RecursiveSymmetryCutBase.$(SrcSuf) \
 	external/fastjet/JetDefinition.hh \
@@ -1275,6 +1410,9 @@ tmp/external/fastjet/contribs/RecursiveTools/SoftDrop.$(ObjSuf): \
 	external/fastjet/contribs/RecursiveTools/SoftDrop.$(SrcSuf)
 tmp/external/fastjet/contribs/SoftKiller/SoftKiller.$(ObjSuf): \
 	external/fastjet/contribs/SoftKiller/SoftKiller.$(SrcSuf)
+tmp/external/fastjet/contribs/ValenciaPlugin/ValenciaPlugin.$(ObjSuf): \
+	external/fastjet/contribs/ValenciaPlugin/ValenciaPlugin.$(SrcSuf) \
+	external/fastjet/NNH.hh
 tmp/external/fastjet/plugins/ATLASCone/ATLASConePlugin.$(ObjSuf): \
 	external/fastjet/plugins/ATLASCone/ATLASConePlugin.$(SrcSuf) \
 	external/fastjet/ClusterSequence.hh
@@ -1393,55 +1531,56 @@ tmp/modules/FastJetFinder.$(ObjSuf): \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootFilter.h \
 	external/ExRootAnalysis/ExRootClassifier.h \
-	external/fastjet/PseudoJet.hh \
-	external/fastjet/JetDefinition.hh \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/fastjet/ClusterSequence.hh \
-	external/fastjet/Selector.hh \
 	external/fastjet/ClusterSequenceArea.hh \
+	external/fastjet/JetDefinition.hh \
+	external/fastjet/PseudoJet.hh \
+	external/fastjet/Selector.hh \
 	external/fastjet/tools/JetMedianBackgroundEstimator.hh \
-	external/fastjet/plugins/SISCone/fastjet/SISConePlugin.hh \
-	external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh \
 	external/fastjet/plugins/CDFCones/fastjet/CDFJetCluPlugin.hh \
-	external/fastjet/contribs/Nsubjettiness/Nsubjettiness.hh \
+	external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh \
+	external/fastjet/plugins/SISCone/fastjet/SISConePlugin.hh \
+	external/fastjet/contribs/Nsubjettiness/ExtraRecombiners.hh \
 	external/fastjet/contribs/Nsubjettiness/Njettiness.hh \
 	external/fastjet/contribs/Nsubjettiness/NjettinessPlugin.hh \
-	external/fastjet/contribs/Nsubjettiness/ExtraRecombiners.hh \
+	external/fastjet/contribs/Nsubjettiness/Nsubjettiness.hh \
+	external/fastjet/contribs/ValenciaPlugin/ValenciaPlugin.hh \
+	external/fastjet/contribs/RecursiveTools/SoftDrop.hh \
 	external/fastjet/tools/Filter.hh \
-	external/fastjet/tools/Pruner.hh \
-	external/fastjet/contribs/RecursiveTools/SoftDrop.hh
+	external/fastjet/tools/Pruner.hh
 tmp/modules/FastJetGridMedianEstimator.$(ObjSuf): \
 	modules/FastJetGridMedianEstimator.$(SrcSuf) \
 	modules/FastJetGridMedianEstimator.h \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
 	classes/DelphesFormula.h \
-	external/ExRootAnalysis/ExRootResult.h \
-	external/ExRootAnalysis/ExRootFilter.h \
 	external/ExRootAnalysis/ExRootClassifier.h \
-	external/fastjet/PseudoJet.hh \
-	external/fastjet/JetDefinition.hh \
+	external/ExRootAnalysis/ExRootFilter.h \
+	external/ExRootAnalysis/ExRootResult.h \
 	external/fastjet/ClusterSequence.hh \
-	external/fastjet/Selector.hh \
-	external/fastjet/RectangularGrid.hh \
 	external/fastjet/ClusterSequenceArea.hh \
+	external/fastjet/JetDefinition.hh \
+	external/fastjet/PseudoJet.hh \
+	external/fastjet/RectangularGrid.hh \
+	external/fastjet/Selector.hh \
 	external/fastjet/tools/JetMedianBackgroundEstimator.hh \
 	external/fastjet/tools/GridMedianBackgroundEstimator.hh \
-	external/fastjet/plugins/SISCone/fastjet/SISConePlugin.hh \
-	external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh \
 	external/fastjet/plugins/CDFCones/fastjet/CDFJetCluPlugin.hh \
-	external/fastjet/contribs/Nsubjettiness/Nsubjettiness.hh \
+	external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh \
+	external/fastjet/plugins/SISCone/fastjet/SISConePlugin.hh \
+	external/fastjet/contribs/Nsubjettiness/ExtraRecombiners.hh \
 	external/fastjet/contribs/Nsubjettiness/Njettiness.hh \
 	external/fastjet/contribs/Nsubjettiness/NjettinessPlugin.hh \
-	external/fastjet/contribs/Nsubjettiness/ExtraRecombiners.hh
+	external/fastjet/contribs/Nsubjettiness/Nsubjettiness.hh
 tmp/modules/RunPUPPI.$(ObjSuf): \
 	modules/RunPUPPI.$(SrcSuf) \
 	modules/RunPUPPI.h \
-	external/PUPPI/RecoObj2.hh \
 	external/PUPPI/AlgoObj.hh \
 	external/PUPPI/PuppiContainer.hh \
+	external/PUPPI/RecoObj2.hh \
 	external/fastjet/PseudoJet.hh \
 	classes/DelphesClasses.h \
 	classes/DelphesFactory.h \
@@ -1497,11 +1636,15 @@ FASTJET_OBJ +=  \
 	tmp/external/fastjet/contribs/Nsubjettiness/Nsubjettiness.$(ObjSuf) \
 	tmp/external/fastjet/contribs/Nsubjettiness/TauComponents.$(ObjSuf) \
 	tmp/external/fastjet/contribs/Nsubjettiness/XConePlugin.$(ObjSuf) \
+	tmp/external/fastjet/contribs/RecursiveTools/BottomUpSoftDrop.$(ObjSuf) \
+	tmp/external/fastjet/contribs/RecursiveTools/IteratedSoftDrop.$(ObjSuf) \
 	tmp/external/fastjet/contribs/RecursiveTools/ModifiedMassDropTagger.$(ObjSuf) \
 	tmp/external/fastjet/contribs/RecursiveTools/Recluster.$(ObjSuf) \
+	tmp/external/fastjet/contribs/RecursiveTools/RecursiveSoftDrop.$(ObjSuf) \
 	tmp/external/fastjet/contribs/RecursiveTools/RecursiveSymmetryCutBase.$(ObjSuf) \
 	tmp/external/fastjet/contribs/RecursiveTools/SoftDrop.$(ObjSuf) \
 	tmp/external/fastjet/contribs/SoftKiller/SoftKiller.$(ObjSuf) \
+	tmp/external/fastjet/contribs/ValenciaPlugin/ValenciaPlugin.$(ObjSuf) \
 	tmp/external/fastjet/plugins/ATLASCone/ATLASConePlugin.$(ObjSuf) \
 	tmp/external/fastjet/plugins/ATLASCone/Jet.$(ObjSuf) \
 	tmp/external/fastjet/plugins/ATLASCone/JetConeFinderTool.$(ObjSuf) \
@@ -1569,12 +1712,11 @@ tmp/display/DelphesDisplay.$(ObjSuf): \
 	display/DelphesDisplay.h
 tmp/display/DelphesEventDisplay.$(ObjSuf): \
 	display/DelphesEventDisplay.$(SrcSuf) \
-	display/DelphesCaloData.h \
+	display/Delphes3DGeometry.h \
 	display/DelphesBranchElement.h \
-	display/Delphes3DGeometry.h \
-	display/DelphesEventDisplay.h \
+	display/DelphesCaloData.h \
 	display/DelphesDisplay.h \
-	display/Delphes3DGeometry.h \
+	display/DelphesEventDisplay.h \
 	display/DelphesHtmlSummary.h \
 	display/DelphesPlotSummary.h \
 	classes/DelphesClasses.h \
@@ -1677,6 +1819,10 @@ TCL_OBJ +=  \
 	tmp/external/tcl/tclUtil.$(ObjSuf) \
 	tmp/external/tcl/tclVar.$(ObjSuf)
 
+modules/DenseTrackFilter.h: \
+	classes/DelphesModule.h
+	@touch $@
+
 modules/VertexFinderDA4D.h: \
 	classes/DelphesModule.h
 	@touch $@
@@ -1757,6 +1903,10 @@ modules/IdentificationMap.h: \
 	classes/DelphesModule.h
 	@touch $@
 
+modules/TrackCovariance.h: \
+	classes/DelphesModule.h
+	@touch $@
+
 modules/ExampleModule.h: \
 	classes/DelphesModule.h
 	@touch $@
@@ -1804,6 +1954,10 @@ external/fastjet/Error.hh: \
 	external/fastjet/internal/base.hh \
 	external/fastjet/config.h \
 	external/fastjet/LimitedWarning.hh
+	@touch $@
+
+modules/DecayFilter.h: \
+	classes/DelphesModule.h
 	@touch $@
 
 external/fastjet/internal/TilingExtent.hh: \
@@ -1860,6 +2014,11 @@ modules/TrackCountingTauTagging.h: \
 	classes/DelphesModule.h
 	@touch $@
 
+external/fastjet/contribs/ValenciaPlugin/ValenciaPlugin.hh: \
+	external/fastjet/JetDefinition.hh \
+	external/fastjet/ClusterSequence.hh
+	@touch $@
+
 external/fastjet/RectangularGrid.hh: \
 	external/fastjet/PseudoJet.hh \
 	external/fastjet/Selector.hh
@@ -1904,6 +2063,10 @@ external/fastjet/PseudoJet.hh: \
 	external/fastjet/PseudoJetStructureBase.hh
 	@touch $@
 
+modules/PhotonID.h: \
+	classes/DelphesModule.h
+	@touch $@
+
 external/fastjet/tools/Pruner.hh: \
 	external/fastjet/ClusterSequence.hh \
 	external/fastjet/WrappedStructure.hh \
@@ -1929,10 +2092,10 @@ modules/MomentumSmearing.h: \
 	@touch $@
 
 modules/TauTagging.h: \
-	classes/DelphesModule.h \
-	external/ExRootAnalysis/ExRootResult.h \
+	external/ExRootAnalysis/ExRootClassifier.h \
 	external/ExRootAnalysis/ExRootFilter.h \
-	external/ExRootAnalysis/ExRootClassifier.h
+	external/ExRootAnalysis/ExRootResult.h \
+	classes/DelphesModule.h
 	@touch $@
 
 external/fastjet/GhostedAreaSpec.hh: \
@@ -1980,8 +2143,8 @@ external/fastjet/ClusterSequenceActiveArea.hh: \
 	@touch $@
 
 modules/JetFlavorAssociation.h: \
-	classes/DelphesModule.h \
-	classes/DelphesClasses.h
+	classes/DelphesClasses.h \
+	classes/DelphesModule.h
 	@touch $@
 
 modules/ParticlePropagator.h: \
@@ -1990,6 +2153,10 @@ modules/ParticlePropagator.h: \
 
 modules/PdgCodeFilter.h: \
 	classes/DelphesModule.h
+	@touch $@
+
+classes/DelphesSTDHEPReader.h: \
+	classes/DelphesXDRReader.h
 	@touch $@
 
 external/fastjet/plugins/CDFCones/fastjet/CDFMidPointPlugin.hh: \
@@ -2095,6 +2262,10 @@ external/fastjet/AreaDefinition.hh: \
 	external/fastjet/GhostedAreaSpec.hh
 	@touch $@
 
+modules/ParticleDensity.h: \
+	classes/DelphesModule.h
+	@touch $@
+
 modules/TimeSmearing.h: \
 	classes/DelphesModule.h
 	@touch $@
@@ -2139,6 +2310,10 @@ modules/FastJetFinder.h: \
 	@touch $@
 
 modules/BeamSpotFilter.h: \
+	classes/DelphesModule.h
+	@touch $@
+
+modules/DualReadoutCalorimeter.h: \
 	classes/DelphesModule.h
 	@touch $@
 
@@ -2245,7 +2420,7 @@ distclean: clean
 dist:
 	@echo ">> Building $(DISTTAR)"
 	@mkdir -p $(DISTDIR)
-	@cp -a CHANGELOG CMakeLists.txt COPYING CREDITS DelphesEnv.sh README README_4LHCb VERSION Makefile MinBias.pileup configure cards classes converters display doc examples external modules python readers $(DISTDIR)
+	@cp -a AUTHORS CHANGELOG CMakeLists.txt COPYING DelphesEnv.sh LICENSE NOTICE README README_4LHCb Makefile MinBias.pileup configure cards classes converters display doc examples external modules python readers validation $(DISTDIR)
 	@find $(DISTDIR) -depth -name .\* -exec rm -rf {} \;
 	@tar -czf $(DISTTAR) $(DISTDIR)
 	@rm -rf $(DISTDIR)
@@ -2258,11 +2433,9 @@ dist:
 	@mkdir -p $(@D)
 	@echo ">> Generating $@"
 	@rootcint -f $@ -c -Iexternal $<
-	@echo "#define private public" > $@.arch
-	@echo "#define protected public" >> $@.arch
 	@mv $@ $@.base
-	@cat $@.arch $< $@.base > $@
-	@rm $@.arch $@.base
+	@cat $< $@.base > $@
+	@rm $@.base
 
 $(DELPHES_DICT_PCM): %Dict$(PcmSuf):
 	@echo ">> Copying $@"

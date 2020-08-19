@@ -20,13 +20,16 @@ set ExecutionPath {
  
   Calorimeter
   EFlowMerger
-
+  EFlowFilter
+  
   PhotonEfficiency
   PhotonIsolation
 
   ElectronFilter
   ElectronEfficiency
   ElectronIsolation
+
+  ChargedHadronFilter
 
   MuonEfficiency
   MuonIsolation
@@ -38,6 +41,7 @@ set ExecutionPath {
   GenMissingET
   
   FastJetFinder
+  FatJetFinder
 
   JetEnergyScale
 
@@ -164,7 +168,7 @@ module MomentumSmearing ElectronMomentumSmearing {
   # set ResolutionFormula {resolution formula as a function of eta and energy}
 
   # resolution formula for electrons
-  # based on arXiv:1405.6569
+  # based on arXiv:1502.02701
   set ResolutionFormula {                  (abs(eta) <= 0.5) * (pt > 0.1) * sqrt(0.03^2 + pt^2*1.3e-3^2) +
                          (abs(eta) > 0.5 && abs(eta) <= 1.5) * (pt > 0.1) * sqrt(0.05^2 + pt^2*1.7e-3^2) +
                          (abs(eta) > 1.5 && abs(eta) <= 2.5) * (pt > 0.1) * sqrt(0.15^2 + pt^2*3.1e-3^2)}
@@ -316,7 +320,7 @@ module SimpleCalorimeter HCal {
   set IsEcal false
 
   set EnergyMin 1.0
-  set EnergySignificanceMin 2.0
+  set EnergySignificanceMin 1.0
 
   set SmearTowerCenter true
 
@@ -392,6 +396,21 @@ module PdgCodeFilter ElectronFilter {
   add PdgCode {-11}
 }
 
+######################
+# ChargedHadronFilter
+######################
+
+module PdgCodeFilter ChargedHadronFilter {
+  set InputArray HCal/eflowTracks
+  set OutputArray chargedHadrons
+  
+  add PdgCode {11}
+  add PdgCode {-11}
+  add PdgCode {13}
+  add PdgCode {-13}
+}
+
+
 ###################################################
 # Tower Merger (in case not using e-flow algorithm)
 ###################################################
@@ -417,6 +436,21 @@ module Merger EFlowMerger {
   set OutputArray eflow
 }
 
+######################
+# EFlowFilter
+######################
+
+module PdgCodeFilter EFlowFilter {
+  set InputArray EFlowMerger/eflow
+  set OutputArray eflow
+  
+  add PdgCode {11}
+  add PdgCode {-11}
+  add PdgCode {13}
+  add PdgCode {-13}
+}
+
+
 ###################
 # Photon efficiency
 ###################
@@ -440,7 +474,7 @@ module Efficiency PhotonEfficiency {
 
 module Isolation PhotonIsolation {
   set CandidateInputArray PhotonEfficiency/photons
-  set IsolationInputArray EFlowMerger/eflow
+  set IsolationInputArray EFlowFilter/eflow
 
   set OutputArray photons
 
@@ -475,7 +509,7 @@ module Efficiency ElectronEfficiency {
 
 module Isolation ElectronIsolation {
   set CandidateInputArray ElectronEfficiency/electrons
-  set IsolationInputArray EFlowMerger/eflow
+  set IsolationInputArray EFlowFilter/eflow
 
   set OutputArray electrons
 
@@ -509,7 +543,7 @@ module Efficiency MuonEfficiency {
 
 module Isolation MuonIsolation {
   set CandidateInputArray MuonEfficiency/muons
-  set IsolationInputArray EFlowMerger/eflow
+  set IsolationInputArray EFlowFilter/eflow
 
   set OutputArray muons
 
@@ -609,6 +643,43 @@ module FastJetFinder FastJetFinder {
 
   set JetPTMin 20.0
 }
+
+##################
+# Fat Jet finder
+##################
+
+module FastJetFinder FatJetFinder {
+  set InputArray EFlowMerger/eflow
+
+  set OutputArray jets
+
+  # algorithm: 1 CDFJetClu, 2 MidPoint, 3 SIScone, 4 kt, 5 Cambridge/Aachen, 6 antikt
+  set JetAlgorithm 6
+  set ParameterR 0.8
+
+  set ComputeNsubjettiness 1
+  set Beta 1.0
+  set AxisMode 4
+
+  set ComputeTrimming 1
+  set RTrim 0.2
+  set PtFracTrim 0.05
+
+  set ComputePruning 1
+  set ZcutPrun 0.1
+  set RcutPrun 0.5
+  set RPrun 0.8
+
+  set ComputeSoftDrop 1
+  set BetaSoftDrop 0.0
+  set SymmetryCutSoftDrop 0.1
+  set R0SoftDrop 0.8
+
+  set JetPTMin 200.0
+}
+
+
+
 
 ##################
 # Jet Energy Scale
@@ -726,6 +797,9 @@ module TreeWriter TreeWriter {
   add Branch UniqueObjectFinder/electrons Electron Electron
   add Branch UniqueObjectFinder/photons Photon Photon
   add Branch UniqueObjectFinder/muons Muon Muon
+
+  add Branch FatJetFinder/jets FatJet Jet
+
   add Branch MissingET/momentum MissingET MissingET
   add Branch ScalarHT/energy ScalarHT ScalarHT
 }

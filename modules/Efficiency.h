@@ -36,7 +36,6 @@ class DelphesFormula;
 class Efficiency: public DelphesModule
 {
 public:
-
   Efficiency();
   ~Efficiency();
 
@@ -45,7 +44,6 @@ public:
   void Finish();
 
 private:
-
   DelphesFormula *fFormula; //!
 
   TIterator *fItInputArray; //!
@@ -53,6 +51,8 @@ private:
   const TObjArray *fInputArray; //!
 
   TObjArray *fOutputArray; //!
+
+  Double_t fUseMomentumVector; //!
 
   ClassDef(Efficiency, 1)
 };

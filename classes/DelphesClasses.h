@@ -31,10 +31,11 @@
 
 // Dependencies (#includes)
 
-#include "TRef.h"
-#include "TObject.h"
-#include "TRefArray.h"
 #include "TLorentzVector.h"
+#include "TMatrixDSym.h"
+#include "TObject.h"
+#include "TRef.h"
+#include "TRefArray.h"
 
 #include "classes/SortableObject.h"
 
@@ -45,7 +46,6 @@ class DelphesFactory;
 class Event: public TObject
 {
 public:
-
   Long64_t Number; // event number
 
   Float_t ReadTime; // read time
@@ -59,7 +59,6 @@ public:
 class LHCOEvent: public Event
 {
 public:
-
   Int_t Trigger; // trigger word
 
   ClassDef(LHCOEvent, 1)
@@ -70,15 +69,15 @@ public:
 class LHEFEvent: public Event
 {
 public:
-
   Int_t ProcessID; // subprocess code for the event | hepup.IDPRUP
 
   Float_t Weight; // weight for the event | hepup.XWGTUP
+  Float_t CrossSection; // cross-section (read from init, implemented only for Wizard evgen)
   Float_t ScalePDF; // scale in GeV used in the calculation of the PDFs in the event | hepup.SCALUP
   Float_t AlphaQED; // value of the QED coupling used in the event | hepup.AQEDUP
   Float_t AlphaQCD; // value of the QCD coupling used in the event | hepup.AQCDUP
 
-  ClassDef(LHEFEvent, 2)
+  ClassDef(LHEFEvent, 3)
 };
 
 //---------------------------------------------------------------------------
@@ -97,11 +96,12 @@ public:
 class HepMCEvent: public Event
 {
 public:
-
   Int_t ProcessID; // unique signal process id | signal_process_id()
   Int_t MPI; // number of multi parton interactions | mpi ()
 
   Float_t Weight; // weight for the event
+  Float_t CrossSection; // cross-section in pb
+  Float_t CrossSectionError; // cross-section error in pb
 
   Float_t Scale; // energy scale, see hep-ph/0109068 | event_scale()
   Float_t AlphaQED; // QED coupling, see hep-ph/0109068 | alphaQED()
@@ -118,7 +118,7 @@ public:
   Float_t PDF1; // PDF (id1, x1, Q) | pdf_info()->pdf1()
   Float_t PDF2; // PDF (id2, x2, Q) | pdf_info()->pdf2()
 
-  ClassDef(HepMCEvent, 2)
+  ClassDef(HepMCEvent, 3)
 };
 
 //---------------------------------------------------------------------------
@@ -175,7 +175,6 @@ public:
 class Vertex: public SortableObject
 {
 public:
-
   Float_t T; // vertex position (t component)
   Float_t X; // vertex position (x component)
   Float_t Y; // vertex position (y component)
@@ -254,7 +253,6 @@ public:
 class Photon: public SortableObject
 {
 public:
-
   Float_t PT; // photon transverse momentum
   Float_t Eta; // photon pseudorapidity
   Float_t Phi; // photon azimuthal angle
@@ -274,12 +272,14 @@ public:
   Float_t SumPtChargedPU; // isolation variable
   Float_t SumPt; // isolation variable
 
+  Int_t Status; // 1: prompt -- 2: non prompt -- 3: fake
+
   static CompBase *fgCompare; //!
   const CompBase *GetCompare() const { return fgCompare; }
 
   TLorentzVector P4() const;
 
-  ClassDef(Photon, 3)
+  ClassDef(Photon, 4)
 };
 
 //---------------------------------------------------------------------------
@@ -287,7 +287,6 @@ public:
 class Electron: public SortableObject
 {
 public:
-
   Float_t PT; // electron transverse momentum
   Float_t Eta; // electron pseudorapidity
   Float_t Phi; // electron azimuthal angle
@@ -307,12 +306,17 @@ public:
   Float_t SumPtChargedPU; // isolation variable
   Float_t SumPt; // isolation variable
 
+  Float_t D0; // track transverse impact parameter
+  Float_t DZ; // track longitudinal impact parameter
+  Float_t ErrorD0; // track transverse impact parameter error
+  Float_t ErrorDZ; // track longitudinal impact parameter error
+
   static CompBase *fgCompare; //!
   const CompBase *GetCompare() const { return fgCompare; }
 
   TLorentzVector P4() const;
 
-  ClassDef(Electron, 3)
+  ClassDef(Electron, 4)
 };
 
 //---------------------------------------------------------------------------
@@ -320,7 +324,6 @@ public:
 class Muon: public SortableObject
 {
 public:
-
   Float_t PT; // muon transverse momentum
   Float_t Eta; // muon pseudorapidity
   Float_t Phi; // muon azimuthal angle
@@ -338,12 +341,17 @@ public:
   Float_t SumPtChargedPU; // isolation variable
   Float_t SumPt; // isolation variable
 
+  Float_t D0; // track transverse impact parameter
+  Float_t DZ; // track longitudinal impact parameter
+  Float_t ErrorD0; // track transverse impact parameter error
+  Float_t ErrorDZ; // track longitudinal impact parameter error
+
   static CompBase *fgCompare; //!
   const CompBase *GetCompare() const { return fgCompare; }
 
   TLorentzVector P4() const;
 
-  ClassDef(Muon, 3)
+  ClassDef(Muon, 4)
 };
 
 //---------------------------------------------------------------------------
@@ -351,7 +359,6 @@ public:
 class Jet: public SortableObject
 {
 public:
-
   Float_t PT; // jet transverse momentum
   Float_t Eta; // jet pseudorapidity
   Float_t Phi; // jet azimuthal angle
@@ -360,8 +367,8 @@ public:
 
   Float_t Mass; // jet invariant mass
 
-  Float_t DeltaEta;  // jet radius in pseudorapidity
-  Float_t DeltaPhi;  // jet radius in azimuthal angle
+  Float_t DeltaEta; // jet radius in pseudorapidity
+  Float_t DeltaPhi; // jet radius in azimuthal angle
 
   UInt_t Flavor; // jet flavor
   UInt_t FlavorAlgo; // jet flavor
@@ -372,6 +379,7 @@ public:
   UInt_t BTagPhys; // 0 or 1 for a jet that has been tagged as containing a heavy quark
 
   UInt_t TauTag; // 0 or 1 for a jet that has been tagged as a tau
+  Float_t TauWeight; // probability for jet to be identified as tau
 
   Int_t Charge; // tau charge
 
@@ -379,6 +387,10 @@ public:
 
   Int_t NCharged; // number of charged constituents
   Int_t NNeutrals; // number of neutral constituents
+
+  Float_t NeutralEnergyFraction;  // charged energy fraction
+  Float_t ChargedEnergyFraction;  // neutral energy fraction 
+
   Float_t Beta; // (sum pt of charged pile-up constituents)/(sum pt of charged constituents)
   Float_t BetaStar; // (sum pt of charged constituents coming from hard interaction)/(sum pt of charged constituents)
   Float_t MeanSqDeltaR; // average distance (squared) between constituent and jet weighted by pt (squared) of constituent
@@ -387,6 +399,10 @@ public:
 
   Float_t Tau[5]; // N-subjettiness
 
+  TLorentzVector SoftDroppedJet;
+  TLorentzVector SoftDroppedSubJet1;
+  TLorentzVector SoftDroppedSubJet2;
+
   TLorentzVector TrimmedP4[5]; // first entry (i = 0) is the total Trimmed Jet 4-momenta and from i = 1 to 4 are the trimmed subjets 4-momenta
   TLorentzVector PrunedP4[5]; // first entry (i = 0) is the total Pruned Jet 4-momenta and from i = 1 to 4 are the pruned subjets 4-momenta
   TLorentzVector SoftDroppedP4[5]; // first entry (i = 0) is the total SoftDropped Jet 4-momenta and from i = 1 to 4 are the pruned subjets 4-momenta
@@ -394,6 +410,11 @@ public:
   Int_t NSubJetsTrimmed; // number of subjets trimmed
   Int_t NSubJetsPruned; // number of subjets pruned
   Int_t NSubJetsSoftDropped; // number of subjets soft-dropped
+
+  Double_t ExclYmerge23;
+  Double_t ExclYmerge34;
+  Double_t ExclYmerge45;
+  Double_t ExclYmerge56;
 
   TRefArray Constituents; // references to constituents
   TRefArray Particles; // references to generated particles
@@ -404,7 +425,7 @@ public:
   TLorentzVector P4() const;
   TLorentzVector Area;
 
-  ClassDef(Jet, 3)
+  ClassDef(Jet, 4)
 };
 
 //---------------------------------------------------------------------------
@@ -495,6 +516,73 @@ public:
 
 //---------------------------------------------------------------------------
 
+class ParticleFlowCandidate: public SortableObject
+{
+
+public:
+  Int_t PID; // HEP ID number
+
+  Int_t Charge; // track charge
+
+  Float_t E; // reconstructed energy [GeV]
+  Float_t P; // track momentum
+  Float_t PT; // track transverse momentum
+  Float_t Eta; // track pseudorapidity
+  Float_t Phi; // track azimuthal angle
+  Float_t CtgTheta; // track cotangent of theta
+
+  Float_t EtaOuter; // track pseudorapidity at the tracker edge
+  Float_t PhiOuter; // track azimuthal angle at the tracker edge
+
+  Float_t T; // track vertex position (t component)
+  Float_t X; // track vertex position (x component)
+  Float_t Y; // track vertex position (y component)
+  Float_t Z; // track vertex position (z component)
+
+  Float_t TOuter; // track position (t component) at the tracker edge
+  Float_t XOuter; // track position (x component) at the tracker edge
+  Float_t YOuter; // track position (y component) at the tracker edge
+  Float_t ZOuter; // track position (z component) at the tracker edge
+
+  Float_t Xd; // X coordinate of point of closest approach to vertex
+  Float_t Yd; // Y coordinate of point of closest approach to vertex
+  Float_t Zd; // Z coordinate of point of closest approach to vertex
+
+  Float_t L; // track path length
+  Float_t D0; // track transverse impact parameter
+  Float_t DZ; // track longitudinal impact parameter
+
+  Float_t ErrorP; // track momentum error
+  Float_t ErrorPT; // track transverse momentum error
+  Float_t ErrorPhi; // track azimuthal angle error
+  Float_t ErrorCtgTheta; // track cotangent of theta error
+
+  Float_t ErrorT; // time measurement error
+  Float_t ErrorD0; // track transverse impact parameter error
+  Float_t ErrorDZ; // track longitudinal impact parameter error
+
+  Int_t VertexIndex; // reference to vertex
+
+  static CompBase *fgCompare; //!
+  const CompBase *GetCompare() const { return fgCompare; }
+
+  TLorentzVector P4() const;
+
+  Int_t NTimeHits; // number of hits contributing to time measurement
+
+  Float_t Eem; // calorimeter tower electromagnetic energy
+  Float_t Ehad; // calorimeter tower hadronic energy
+
+  Float_t Edges[4]; // calorimeter tower edges
+
+  TRefArray Particles; // references to generated particles
+
+  ClassDef(ParticleFlowCandidate, 1)
+
+};
+
+//---------------------------------------------------------------------------
+
 class HectorHit: public SortableObject
 {
 public:
@@ -539,7 +627,6 @@ public:
   Int_t IsRecoPU;
 
   Int_t IsConstituent;
-
   Int_t IsFromConversion;
 
   UInt_t Flavor;
@@ -551,6 +638,7 @@ public:
   UInt_t BTagPhys;
 
   UInt_t TauTag;
+  Float_t TauWeight;
 
   Float_t Eem;
   Float_t Ehad;
@@ -562,11 +650,13 @@ public:
   TLorentzVector Momentum, Position, InitialPosition, PositionError, Area;
 
   Float_t L; // path length
+  Float_t DZ;
+  Float_t ErrorDZ;
   Float_t ErrorT; // path length
   Float_t D0;
   Float_t ErrorD0;
-  Float_t DZ;
-  Float_t ErrorDZ;
+  Float_t C;
+  Float_t ErrorC;
   Float_t P;
   Float_t ErrorP;
   Float_t PT;
@@ -593,11 +683,14 @@ public:
   Float_t MeanSqDeltaR;
   Float_t PTD;
   Float_t FracPt[5];
+  Float_t NeutralEnergyFraction;  // charged energy fraction
+  Float_t ChargedEnergyFraction;  // neutral energy fraction 
+
 
   // Timing information
 
   Int_t NTimeHits;
-  std::vector< std::pair< Float_t, Float_t > > ECalEnergyTimePairs;
+  std::vector<std::pair<Float_t, Float_t> > ECalEnergyTimePairs;
 
   // Isolation variables
 
@@ -607,6 +700,10 @@ public:
   Float_t SumPtNeutral;
   Float_t SumPtChargedPU;
   Float_t SumPt;
+
+  // ACTS compliant 6x6 track covariance (D0, phi, Curvature, dz, ctg(theta))
+
+  TMatrixDSym TrackCovariance;
 
   // vertex variables
 
@@ -624,6 +721,10 @@ public:
 
   // Other Substructure variables
 
+  TLorentzVector SoftDroppedJet;
+  TLorentzVector SoftDroppedSubJet1;
+  TLorentzVector SoftDroppedSubJet2;
+
   TLorentzVector TrimmedP4[5]; // first entry (i = 0) is the total Trimmed Jet 4-momenta and from i = 1 to 4 are the trimmed subjets 4-momenta
   TLorentzVector PrunedP4[5]; // first entry (i = 0) is the total Pruned Jet 4-momenta and from i = 1 to 4 are the pruned subjets 4-momenta
   TLorentzVector SoftDroppedP4[5]; // first entry (i = 0) is the total SoftDropped Jet 4-momenta and from i = 1 to 4 are the pruned subjets 4-momenta
@@ -632,7 +733,15 @@ public:
   Int_t NSubJetsPruned; // number of subjets pruned
   Int_t NSubJetsSoftDropped; // number of subjets soft-dropped
 
+  // Exclusive clustering variables
+  Double_t ExclYmerge23;
+  Double_t ExclYmerge34;
+  Double_t ExclYmerge45;
+  Double_t ExclYmerge56;
 
+  // event characteristics variables
+  Double_t ParticleDensity; // particle multiplicity density in the proximity of the particle
+  
   static CompBase *fgCompare; //!
   const CompBase *GetCompare() const { return fgCompare; }
 
@@ -643,7 +752,7 @@ public:
 
   virtual void Copy(TObject &object) const;
   virtual TObject *Clone(const char *newname = "") const;
-  virtual void Clear(Option_t* option = "");
+  virtual void Clear(Option_t *option = "");
 
 private:
   DelphesFactory *fFactory; //!
@@ -651,9 +760,7 @@ private:
 
   void SetFactory(DelphesFactory *factory) { fFactory = factory; }
 
-  ClassDef(Candidate, 5)
+  ClassDef(Candidate, 6)
 };
 
 #endif // DelphesClasses_h
-
-

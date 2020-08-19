@@ -33,11 +33,11 @@
 
 class TIterator;
 class TObjArray;
+class DelphesFormula;
 
 class TrackPileUpSubtractor: public DelphesModule
 {
 public:
-
   TrackPileUpSubtractor();
   ~TrackPileUpSubtractor();
 
@@ -46,19 +46,17 @@ public:
   void Finish();
 
 private:
-
-  Double_t fZVertexResolution;
+  DelphesFormula *fFormula; //!
 
   Double_t fPTMin;
 
-  std::map< TIterator *, TObjArray * > fInputMap; //!
+  std::map<TIterator *, TObjArray *> fInputMap; //!
 
   ClassDef(TrackPileUpSubtractor, 1)
 
-  TIterator *fItVertexInputArray; //!
+    TIterator *fItVertexInputArray; //!
 
   const TObjArray *fVertexInputArray; //!
-
 };
 
 #endif

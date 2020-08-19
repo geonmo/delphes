@@ -35,10 +35,13 @@
 #include "modules/EnergySmearing.h"
 #include "modules/MomentumSmearing.h"
 #include "modules/TrackSmearing.h"
+#include "modules/TrackCovariance.h"
 #include "modules/ImpactParameterSmearing.h"
 #include "modules/TimeSmearing.h"
 #include "modules/SimpleCalorimeter.h"
+#include "modules/DenseTrackFilter.h"
 #include "modules/Calorimeter.h"
+#include "modules/DualReadoutCalorimeter.h"
 #include "modules/OldCalorimeter.h"
 #include "modules/Isolation.h"
 #include "modules/EnergyScale.h"
@@ -55,6 +58,7 @@
 #include "modules/TrackPileUpSubtractor.h"
 #include "modules/TaggingParticlesSkimmer.h"
 #include "modules/PileUpJetID.h"
+#include "modules/PhotonID.h"
 #include "modules/ConstituentFilter.h"
 #include "modules/StatusPidFilter.h"
 #include "modules/PdgCodeFilter.h"
@@ -68,6 +72,8 @@
 #include "modules/VertexSorter.h"
 #include "modules/VertexFinder.h"
 #include "modules/VertexFinderDA4D.h"
+#include "modules/DecayFilter.h"
+#include "modules/ParticleDensity.h"
 #include "modules/ExampleModule.h"
 
 #ifdef __CINT__
@@ -86,10 +92,13 @@
 #pragma link C++ class EnergySmearing+;
 #pragma link C++ class MomentumSmearing+;
 #pragma link C++ class TrackSmearing+;
+#pragma link C++ class TrackCovariance+;
 #pragma link C++ class ImpactParameterSmearing+;
 #pragma link C++ class TimeSmearing+;
 #pragma link C++ class SimpleCalorimeter+;
+#pragma link C++ class DenseTrackFilter+;
 #pragma link C++ class Calorimeter+;
+#pragma link C++ class DualReadoutCalorimeter+;
 #pragma link C++ class OldCalorimeter+;
 #pragma link C++ class Isolation+;
 #pragma link C++ class EnergyScale+;
@@ -106,6 +115,7 @@
 #pragma link C++ class TrackPileUpSubtractor+;
 #pragma link C++ class TaggingParticlesSkimmer+;
 #pragma link C++ class PileUpJetID+;
+#pragma link C++ class PhotonID+;
 #pragma link C++ class ConstituentFilter+;
 #pragma link C++ class StatusPidFilter+;
 #pragma link C++ class PdgCodeFilter+;
@@ -119,6 +129,8 @@
 #pragma link C++ class VertexSorter+;
 #pragma link C++ class VertexFinder+;
 #pragma link C++ class VertexFinderDA4D+;
+#pragma link C++ class DecayFilter+;
+#pragma link C++ class ParticleDensity+;
 #pragma link C++ class ExampleModule+;
 
 #endif

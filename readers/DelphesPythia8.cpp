@@ -16,9 +16,9 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 #include <signal.h>
@@ -26,24 +26,24 @@
 #include "Pythia.h"
 #include "Pythia8Plugins/CombineMatchingInput.h"
 
-#include "TROOT.h"
 #include "TApplication.h"
+#include "TROOT.h"
 
-#include "TFile.h"
-#include "TObjArray.h"
-#include "TStopwatch.h"
 #include "TDatabasePDG.h"
-#include "TParticlePDG.h"
+#include "TFile.h"
 #include "TLorentzVector.h"
+#include "TObjArray.h"
+#include "TParticlePDG.h"
+#include "TStopwatch.h"
 
-#include "modules/Delphes.h"
 #include "classes/DelphesClasses.h"
 #include "classes/DelphesFactory.h"
 #include "classes/DelphesLHEFReader.h"
+#include "modules/Delphes.h"
 
-#include "ExRootAnalysis/ExRootTreeWriter.h"
-#include "ExRootAnalysis/ExRootTreeBranch.h"
 #include "ExRootAnalysis/ExRootProgressBar.h"
+#include "ExRootAnalysis/ExRootTreeBranch.h"
+#include "ExRootAnalysis/ExRootTreeWriter.h"
 
 using namespace std;
 
@@ -97,8 +97,15 @@ void ConvertInput(Long64_t eventCounter, Pythia8::Pythia *pythia,
 
     pid = particle.id();
     status = particle.statusHepMC();
-    px = particle.px(); py = particle.py(); pz = particle.pz(); e = particle.e(); mass = particle.m();
-    x = particle.xProd(); y = particle.yProd(); z = particle.zProd(); t = particle.tProd();
+    px = particle.px();
+    py = particle.py();
+    pz = particle.pz();
+    e = particle.e();
+    mass = particle.m();
+    x = particle.xProd();
+    y = particle.yProd();
+    z = particle.zProd();
+    t = particle.tProd();
 
     candidate = factory->NewCandidate();
 
@@ -114,7 +121,7 @@ void ConvertInput(Long64_t eventCounter, Pythia8::Pythia *pythia,
     candidate->D2 = particle.daughter2() - 1;
 
     pdgParticle = pdg->GetParticle(pid);
-    candidate->Charge = pdgParticle ? Int_t(pdgParticle->Charge()/3.0) : -999;
+    candidate->Charge = pdgParticle ? Int_t(pdgParticle->Charge() / 3.0) : -999;
     candidate->Mass = mass;
 
     candidate->Momentum.SetPxPyPzE(px, py, pz, e);
@@ -145,14 +152,17 @@ void SignalHandler(int sig)
   interrupted = true;
 }
 
+//---------------------------------------------------------------------------
 
-// Single-particle gun. The particle must be a colour singlet.
-// Input: flavour, energy, direction (theta, phi).
-// If theta < 0 then random choice over solid angle.
-// Optional final argument to put particle at rest => E = m.
-// from pythia8 example 21
+/*
+Single-particle gun. The particle must be a colour singlet.
+Input: flavour, energy, direction (theta, phi).
+If theta < 0 then random choice over solid angle.
+Optional final argument to put particle at rest => E = m.
+from pythia8 example 21
+*/
 
-void fillParticle(int id, double p_max, double eta_max,
+void fillParticle(int id, double pMax, double etaMax,
   Pythia8::Event &event, Pythia8::ParticleData &pdt, Pythia8::Rndm &rndm)
 {
   // Reset event record to allow for new event.
@@ -160,39 +170,40 @@ void fillParticle(int id, double p_max, double eta_max,
 
   // Generate uniform pt and eta.
   double pt, eta, phi, pp, ee, mm;
-  
-  //pmin = 0.1 GeV for single particles
-  pp = pow(10, - 1.0 + (log10(p_max) + 1.0) * rndm.flat()); 
-  eta = (2.0 * rndm.flat() - 1.0) * eta_max;
+
+  // pMin = 0.1 GeV for single particles
+  pp = pow(10, -1.0 + (log10(pMax) + 1.0) * rndm.flat());
+  eta = (2.0 * rndm.flat() - 1.0) * etaMax;
   phi = 2.0 * M_PI * rndm.flat();
   mm = pdt.mSel(id);
-  ee = Pythia8::sqrtpos(pp*pp + mm*mm);
+  ee = Pythia8::sqrtpos(pp * pp + mm * mm);
   pt = pp / cosh(eta);
 
   // Store the particle in the event record.
   event.append(id, 1, 0, 0, pt * cos(phi), pt * sin(phi), pt * sinh(eta), ee, mm);
 }
 
-void fillPartons(int id, double p_max, double eta_max,
+//---------------------------------------------------------------------------
+
+void fillPartons(int id, double pMax, double etaMax,
   Pythia8::Event &event, Pythia8::ParticleData &pdt, Pythia8::Rndm &rndm)
 {
-
   // Reset event record to allow for new event.
   event.reset();
 
   // Generate uniform pt and eta.
   double pt, eta, phi, pp, ee, mm;
 
-  //pmin = 1 GeV for jets
-  pp = pow(10, log10(p_max) * rndm.flat());  
-  eta = (2.0 * rndm.flat() - 1.0) * eta_max;
+  // pMin = 1 GeV for jets
+  pp = pow(10, log10(pMax) * rndm.flat());
+  eta = (2.0 * rndm.flat() - 1.0) * etaMax;
   phi = 2.0 * M_PI * rndm.flat();
   mm = pdt.mSel(id);
-  ee = Pythia8::sqrtpos(pp*pp + mm*mm);
+  ee = Pythia8::sqrtpos(pp * pp + mm * mm);
   pt = pp / cosh(eta);
 
-  if( (id == 4 || id == 5) && pt < 10.0) return;
- 
+  if((id == 4 || id == 5) && pt < 10.0) return;
+
   if(id == 21)
   {
     event.append(21, 23, 101, 102, pt * cos(phi), pt * sin(phi), pt * sinh(eta), ee);
@@ -204,7 +215,6 @@ void fillPartons(int id, double p_max, double eta_max,
     event.append(-id, 23, 0, 101, -pt * cos(phi), -pt * sin(phi), -pt * sinh(eta), ee, mm);
   }
 }
-
 
 //---------------------------------------------------------------------------
 
@@ -226,16 +236,21 @@ int main(int argc, char *argv[])
   DelphesLHEFReader *reader = 0;
   Long64_t eventCounter, errorCounter;
   Long64_t numberOfEvents, timesAllowErrors;
+  Bool_t spareFlag1;
+  Int_t spareMode1;
+  Double_t spareParm1, spareParm2;
 
   Pythia8::Pythia *pythia = 0;
- 
+
   // for matching
   Pythia8::CombineMatchingInput *combined = 0;
-  Pythia8::UserHooks* matching = 0;
+  Pythia8::UserHooks *matching = 0;
 
   if(argc != 4)
   {
-    cout << " Usage: " << appName << " config_file" << " pythia_card" << " output_file" << endl;
+    cout << " Usage: " << appName << " config_file"
+         << " pythia_card"
+         << " output_file" << endl;
     cout << " config_file - configuration file in Tcl format," << endl;
     cout << " pythia_card - Pythia8 configuration file," << endl;
     cout << " output_file - output file in ROOT format." << endl;
@@ -278,15 +293,14 @@ int main(int argc, char *argv[])
 
     // Initialize Pythia
     pythia = new Pythia8::Pythia;
-  
+
     // jet matching
     matching = combined->getHook(*pythia);
-    if (!matching)
+    if(!matching)
     {
       throw runtime_error("can't do matching");
     }
     pythia->setUserHooksPtr(matching);
- 
 
     if(pythia == NULL)
     {
@@ -304,8 +318,13 @@ int main(int argc, char *argv[])
     numberOfEvents = pythia->mode("Main:numberOfEvents");
     timesAllowErrors = pythia->mode("Main:timesAllowErrors");
 
+    spareFlag1 = pythia->flag("Main:spareFlag1");
+    spareMode1 = pythia->mode("Main:spareMode1");
+    spareParm1 = pythia->parm("Main:spareParm1");
+    spareParm2 = pythia->parm("Main:spareParm2");
+
     // Check if particle gun
-    if (!pythia->flag("Main:spareFlag1"))
+    if(!spareFlag1)
     {
       inputFile = fopen(pythia->word("Beams:LHEF").c_str(), "r");
       if(inputFile)
@@ -336,18 +355,18 @@ int main(int argc, char *argv[])
     readStopWatch.Start();
     for(eventCounter = 0; eventCounter < numberOfEvents && !interrupted; ++eventCounter)
     {
-      while(reader && reader->ReadBlock(factory, allParticleOutputArrayLHEF,
-        stableParticleOutputArrayLHEF, partonOutputArrayLHEF) && !reader->EventReady());
+      while(reader && reader->ReadBlock(factory, allParticleOutputArrayLHEF, stableParticleOutputArrayLHEF, partonOutputArrayLHEF) && !reader->EventReady())
+        ;
 
-      if (pythia->flag("Main:spareFlag1"))
+      if(spareFlag1)
       {
-        if (pythia->mode("Main:spareMode1") == 11 || pythia->mode("Main:spareMode1") == 13 || pythia->mode("Main:spareMode1") == 15 || pythia->mode("Main:spareMode1") == 22 || pythia->mode("Main:spareMode1") == 211 || pythia->mode("Main:spareMode1") == 2112) 
-        { 
-          fillParticle(pythia->mode("Main:spareMode1"), pythia->parm("Main:spareParm1"), pythia->parm("Main:spareParm2"), pythia->event, pythia->particleData, pythia->rndm);
+        if((spareMode1 >= 1 && spareMode1 <= 5) || spareMode1 == 21)
+        {
+          fillPartons(spareMode1, spareParm1, spareParm2, pythia->event, pythia->particleData, pythia->rndm);
         }
         else
         {
-          fillPartons(pythia->mode("Main:spareMode1"), pythia->parm("Main:spareParm1"), pythia->parm("Main:spareParm2"), pythia->event, pythia->particleData, pythia->rndm);
+          fillParticle(spareMode1, spareParm1, spareParm2, pythia->event, pythia->particleData, pythia->rndm);
         }
       }
 

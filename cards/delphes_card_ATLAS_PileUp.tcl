@@ -22,7 +22,8 @@ set ExecutionPath {
   NeutralTowerMerger
   EFlowMergerAllTracks
   EFlowMerger
-
+  EFlowFilter
+  
   NeutrinoFilter
   GenJetFinder
   GenMissingET
@@ -332,7 +333,7 @@ module TrackPileUpSubtractor TrackPileUpSubtractor {
 
   # assume perfect pile-up subtraction for tracks with |z| > fZVertexResolution
   # Z vertex resolution in m
-  set ZVertexResolution 0.0001
+  set ZVertexResolution {0.0001}
 }
 
 ####################
@@ -358,7 +359,6 @@ module Merger EFlowMergerAllTracks {
   set OutputArray eflow
 }
 
-
 ####################
 # Energy flow merger
 ####################
@@ -370,6 +370,21 @@ module Merger EFlowMerger {
   add InputArray Calorimeter/eflowNeutralHadrons
   set OutputArray eflow
 }
+
+######################
+# EFlowFilter
+######################
+
+module PdgCodeFilter EFlowFilter {
+  set InputArray EFlowMerger/eflow
+  set OutputArray eflow
+  
+  add PdgCode {11}
+  add PdgCode {-11}
+  add PdgCode {13}
+  add PdgCode {-13}
+}
+
 
 #############
 # Rho pile-up
@@ -507,7 +522,7 @@ module Efficiency PhotonEfficiency {
 
 module Isolation PhotonIsolation {
   set CandidateInputArray PhotonEfficiency/photons
-  set IsolationInputArray EFlowMergerAllTracks/eflow
+  set IsolationInputArray EFlowFilter/eflow
   set RhoInputArray Rho/rho
 
   set OutputArray photons
@@ -542,7 +557,7 @@ module Efficiency ElectronEfficiency {
 
 module Isolation ElectronIsolation {
   set CandidateInputArray ElectronEfficiency/electrons
-  set IsolationInputArray EFlowMergerAllTracks/eflow
+  set IsolationInputArray EFlowFilter/eflow
   set RhoInputArray Rho/rho
 
   set OutputArray electrons
@@ -577,7 +592,7 @@ module Efficiency MuonEfficiency {
 
 module Isolation MuonIsolation {
   set CandidateInputArray MuonEfficiency/muons
-  set IsolationInputArray EFlowMergerAllTracks/eflow
+  set IsolationInputArray EFlowFilter/eflow
   set RhoInputArray Rho/rho
 
   set OutputArray muons

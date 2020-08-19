@@ -16,7 +16,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 /** \class Efficiency
  *
  *  Selects candidates from the InputArray according to the efficiency formula.
@@ -31,22 +30,22 @@
 #include "classes/DelphesFactory.h"
 #include "classes/DelphesFormula.h"
 
-#include "ExRootAnalysis/ExRootResult.h"
-#include "ExRootAnalysis/ExRootFilter.h"
 #include "ExRootAnalysis/ExRootClassifier.h"
+#include "ExRootAnalysis/ExRootFilter.h"
+#include "ExRootAnalysis/ExRootResult.h"
 
-#include "TMath.h"
-#include "TString.h"
-#include "TFormula.h"
-#include "TRandom3.h"
-#include "TObjArray.h"
 #include "TDatabasePDG.h"
+#include "TFormula.h"
 #include "TLorentzVector.h"
+#include "TMath.h"
+#include "TObjArray.h"
+#include "TRandom3.h"
+#include "TString.h"
 
-#include <algorithm> 
-#include <stdexcept>
+#include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 using namespace std;
 
@@ -78,6 +77,9 @@ void Efficiency::Init()
   fInputArray = ImportArray(GetString("InputArray", "ParticlePropagator/stableParticles"));
   fItInputArray = fInputArray->MakeIterator();
 
+  // switch to compute efficiency based on momentum vector eta, phi
+  fUseMomentumVector = GetBool("UseMomentumVector", false);
+
   // create output array
 
   fOutputArray = ExportArray(GetString("OutputArray", "stableParticles"));
@@ -93,23 +95,29 @@ void Efficiency::Finish()
 //------------------------------------------------------------------------------
 
 void Efficiency::Process()
-{ 
+{
   Candidate *candidate;
   Double_t pt, eta, phi, e;
 
   fItInputArray->Reset();
-  while((candidate = static_cast<Candidate*>(fItInputArray->Next())))
+  while((candidate = static_cast<Candidate *>(fItInputArray->Next())))
   {
     const TLorentzVector &candidatePosition = candidate->Position;
     const TLorentzVector &candidateMomentum = candidate->Momentum;
     eta = candidatePosition.Eta();
     phi = candidatePosition.Phi();
+
+    if (fUseMomentumVector){
+      eta = candidateMomentum.Eta();
+      phi = candidateMomentum.Phi();
+    }
+
     pt = candidateMomentum.Pt();
     e = candidateMomentum.E();
-
-    // apply an efficency formula
-    if(gRandom->Uniform() > fFormula->Eval(pt, eta, phi, e)) continue;
     
+    // apply an efficency formula
+    if(gRandom->Uniform() > fFormula->Eval(pt, eta, phi, e, candidate)) continue;
+
     fOutputArray->Add(candidate);
   }
 }

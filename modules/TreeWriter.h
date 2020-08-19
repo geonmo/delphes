@@ -41,7 +41,6 @@ class ExRootTreeBranch;
 class TreeWriter: public DelphesModule
 {
 public:
-
   TreeWriter();
   ~TreeWriter();
 
@@ -50,13 +49,13 @@ public:
   void Finish();
 
 private:
-
   void FillParticles(Candidate *candidate, TRefArray *array);
 
   void ProcessParticles(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessVertices(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessTracks(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessTowers(ExRootTreeBranch *branch, TObjArray *array);
+  void ProcessParticleFlowCandidates(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessPhotons(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessElectrons(ExRootTreeBranch *branch, TObjArray *array);
   void ProcessMuons(ExRootTreeBranch *branch, TObjArray *array);
@@ -71,14 +70,14 @@ private:
 #if !defined(__CINT__) && !defined(__CLING__)
   typedef void (TreeWriter::*TProcessMethod)(ExRootTreeBranch *, TObjArray *); //!
 
-  typedef std::map< ExRootTreeBranch *, std::pair< TProcessMethod, TObjArray * > > TBranchMap; //!
+  typedef std::map<ExRootTreeBranch *, std::pair<TProcessMethod, TObjArray *> > TBranchMap; //!
 
   TBranchMap fBranchMap; //!
 
-  std::map< TClass *, TProcessMethod > fClassMap; //!
+  std::map<TClass *, TProcessMethod> fClassMap; //!
 #endif
 
-  ClassDef(TreeWriter, 1)
+  ClassDef(TreeWriter, 2)
 };
 
 #endif

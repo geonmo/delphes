@@ -16,7 +16,6 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 /**
  *
  *  Definition of classes to be stored in the root tree.
@@ -28,7 +27,6 @@
  */
 
 #include "classes/DelphesClasses.h"
-
 #include "classes/DelphesFactory.h"
 #include "classes/SortableObject.h"
 
@@ -39,6 +37,7 @@ CompBase *Muon::fgCompare = CompPT<Muon>::Instance();
 CompBase *Jet::fgCompare = CompPT<Jet>::Instance();
 CompBase *Track::fgCompare = CompPT<Track>::Instance();
 CompBase *Tower::fgCompare = CompE<Tower>::Instance();
+CompBase *ParticleFlowCandidate::fgCompare = CompE<ParticleFlowCandidate>::Instance();
 CompBase *HectorHit::fgCompare = CompE<HectorHit>::Instance();
 CompBase *Vertex::fgCompare = CompSumPT2<Vertex>::Instance();
 CompBase *Candidate::fgCompare = CompMomentumPt<Candidate>::Instance();
@@ -117,31 +116,43 @@ TLorentzVector Tower::P4() const
 
 //------------------------------------------------------------------------------
 
+TLorentzVector ParticleFlowCandidate::P4() const
+{
+  TLorentzVector vec;
+  vec.SetPtEtaPhiM(PT, Eta, Phi, 0.0);
+  return vec;
+}
+
+//------------------------------------------------------------------------------
+
 Candidate::Candidate() :
   PID(0), Status(0), M1(-1), M2(-1), D1(-1), D2(-1),
   Charge(0), Mass(0.0),
   IsPU(0), IsRecoPU(0), IsConstituent(0), IsFromConversion(0),
-  ClusterIndex(-1), ClusterNDF(0), ClusterSigma(0), SumPT2(0), BTVSumPT2(0), GenDeltaZ(0), GenSumPT2(0),
   Flavor(0), FlavorAlgo(0), FlavorPhys(0),
   BTag(0), BTagAlgo(0), BTagPhys(0),
-  TauTag(0), Eem(0.0), Ehad(0.0),
+  TauTag(0), TauWeight(0.0), Eem(0.0), Ehad(0.0),
   DeltaEta(0.0), DeltaPhi(0.0),
   Momentum(0.0, 0.0, 0.0, 0.0),
   Position(0.0, 0.0, 0.0, 0.0),
-  PositionError(0.0, 0.0, 0.0, 0.0),
   InitialPosition(0.0, 0.0, 0.0, 0.0),
+  PositionError(0.0, 0.0, 0.0, 0.0),
   Area(0.0, 0.0, 0.0, 0.0),
+  TrackCovariance(5),
   L(0),
-  D0(0), ErrorD0(0), 
-  DZ(0), ErrorDZ(0), 
-  P(0),  ErrorP(0), 
-  PT(0), ErrorPT(0), 
-  CtgTheta(0), ErrorCtgTheta(0), 
-  Phi(0), ErrorPhi(0),  
-  Xd(0), Yd(0), Zd(0), 
+  D0(0), ErrorD0(0),
+  DZ(0), ErrorDZ(0),
+  P(0), ErrorP(0),
+  C(0), ErrorC(0),
+  PT(0), ErrorPT(0),
+  CtgTheta(0), ErrorCtgTheta(0),
+  Phi(0), ErrorPhi(0),
+  Xd(0), Yd(0), Zd(0),
   TrackResolution(0),
   NCharged(0),
   NNeutrals(0),
+  NeutralEnergyFraction(0),  // charged energy fraction
+  ChargedEnergyFraction(0),  // neutral energy fraction 
   Beta(0),
   BetaStar(0),
   MeanSqDeltaR(0),
@@ -153,9 +164,15 @@ Candidate::Candidate() :
   SumPtNeutral(-999),
   SumPtChargedPU(-999),
   SumPt(-999),
+  ClusterIndex(-1), ClusterNDF(0), ClusterSigma(0), SumPT2(0), BTVSumPT2(0), GenDeltaZ(0), GenSumPT2(0),
   NSubJetsTrimmed(0),
   NSubJetsPruned(0),
   NSubJetsSoftDropped(0),
+  ExclYmerge23(0),
+  ExclYmerge34(0),
+  ExclYmerge45(0),
+  ExclYmerge56(0),
+  ParticleDensity(0),
   fFactory(0),
   fArray(0)
 {
@@ -174,6 +191,11 @@ Candidate::Candidate() :
   Tau[2] = 0.0;
   Tau[3] = 0.0;
   Tau[4] = 0.0;
+
+  SoftDroppedJet.SetXYZT(0.0, 0.0, 0.0, 0.0);
+  SoftDroppedSubJet1.SetXYZT(0.0, 0.0, 0.0, 0.0);
+  SoftDroppedSubJet2.SetXYZT(0.0, 0.0, 0.0, 0.0);
+
   for(i = 0; i < 5; ++i)
   {
     TrimmedP4[i].SetXYZT(0.0, 0.0, 0.0, 0.0);
@@ -227,7 +249,6 @@ Bool_t Candidate::Overlaps(const Candidate *object) const
   return kFALSE;
 }
 
-
 //------------------------------------------------------------------------------
 
 TObject *Candidate::Clone(const char *newname) const
@@ -253,6 +274,7 @@ void Candidate::Copy(TObject &obj) const
   object.Charge = Charge;
   object.Mass = Mass;
   object.IsPU = IsPU;
+  object.IsRecoPU = IsRecoPU;
   object.IsConstituent = IsConstituent;
   object.IsFromConversion = IsFromConversion;
   object.ClusterIndex = ClusterIndex;
@@ -269,6 +291,7 @@ void Candidate::Copy(TObject &obj) const
   object.BTagAlgo = BTagAlgo;
   object.BTagPhys = BTagPhys;
   object.TauTag = TauTag;
+  object.TauWeight = TauWeight;
   object.Eem = Eem;
   object.Ehad = Ehad;
   object.Edges[0] = Edges[0];
@@ -290,18 +313,22 @@ void Candidate::Copy(TObject &obj) const
   object.ErrorDZ = ErrorDZ;
   object.P = P;
   object.ErrorP = ErrorP;
+  object.C = C;
+  object.ErrorC = ErrorC;
   object.PT = PT;
   object.ErrorPT = ErrorPT;
-  object.CtgTheta = CtgTheta ;
+  object.CtgTheta = CtgTheta;
   object.ErrorCtgTheta = ErrorCtgTheta;
   object.Phi = Phi;
-  object.ErrorPhi = ErrorPhi;  
+  object.ErrorPhi = ErrorPhi;
   object.Xd = Xd;
   object.Yd = Yd;
   object.Zd = Zd;
   object.TrackResolution = TrackResolution;
   object.NCharged = NCharged;
   object.NNeutrals = NNeutrals;
+  object.NeutralEnergyFraction = NeutralEnergyFraction;
+  object.ChargedEnergyFraction = ChargedEnergyFraction;
   object.Beta = Beta;
   object.BetaStar = BetaStar;
   object.MeanSqDeltaR = MeanSqDeltaR;
@@ -315,9 +342,9 @@ void Candidate::Copy(TObject &obj) const
   object.SumPt = SumPt;
   object.ClusterIndex = ClusterIndex;
   object.ClusterNDF = ClusterNDF;
-  object.ClusterSigma = ClusterSigma; 
+  object.ClusterSigma = ClusterSigma;
   object.SumPT2 = SumPT2;
-  
+
   object.FracPt[0] = FracPt[0];
   object.FracPt[1] = FracPt[1];
   object.FracPt[2] = FracPt[2];
@@ -349,6 +376,10 @@ void Candidate::Copy(TObject &obj) const
   object.NSubJetsPruned = NSubJetsPruned;
   object.NSubJetsSoftDropped = NSubJetsSoftDropped;
 
+  object.SoftDroppedJet = SoftDroppedJet;
+  object.SoftDroppedSubJet1 = SoftDroppedSubJet1;
+  object.SoftDroppedSubJet2 = SoftDroppedSubJet2;
+  object.TrackCovariance = TrackCovariance;
   object.fFactory = fFactory;
   object.fArray = 0;
 
@@ -368,17 +399,21 @@ void Candidate::Copy(TObject &obj) const
 
 //------------------------------------------------------------------------------
 
-void Candidate::Clear(Option_t* option)
+void Candidate::Clear(Option_t *option)
 {
   int i;
   SetUniqueID(0);
   ResetBit(kIsReferenced);
   PID = 0;
   Status = 0;
-  M1 = -1; M2 = -1; D1 = -1; D2 = -1;
+  M1 = -1;
+  M2 = -1;
+  D1 = -1;
+  D2 = -1;
   Charge = 0;
   Mass = 0.0;
   IsPU = 0;
+  IsRecoPU = 0;
   IsConstituent = 0;
   IsFromConversion = 0;
   Flavor = 0;
@@ -388,6 +423,7 @@ void Candidate::Clear(Option_t* option)
   BTagAlgo = 0;
   BTagPhys = 0;
   TauTag = 0;
+  TauWeight = 0.0;
   Eem = 0.0;
   Ehad = 0.0;
   Edges[0] = 0.0;
@@ -400,14 +436,17 @@ void Candidate::Clear(Option_t* option)
   Position.SetXYZT(0.0, 0.0, 0.0, 0.0);
   InitialPosition.SetXYZT(0.0, 0.0, 0.0, 0.0);
   Area.SetXYZT(0.0, 0.0, 0.0, 0.0);
+  TrackCovariance.Zero();
   L = 0.0;
   ErrorT = 0.0;
-  D0 = 0.0;  
+  D0 = 0.0;
   ErrorD0 = 0.0;
   DZ = 0.0;
   ErrorDZ = 0.0;
-  P =0.0;
-  ErrorP =0.0;
+  P = 0.0;
+  ErrorP = 0.0;
+  C = 0.0;
+  ErrorC = 0.0;
   PT = 0.0;
   ErrorPT = 0.0;
   CtgTheta = 0.0;
@@ -437,12 +476,12 @@ void Candidate::Clear(Option_t* option)
 
   ClusterIndex = -1;
   ClusterNDF = -99;
-  ClusterSigma = 0.0; 
+  ClusterSigma = 0.0;
   SumPT2 = 0.0;
   BTVSumPT2 = 0.0;
   GenDeltaZ = 0.0;
-  GenSumPT2 = 0.0; 
-  
+  GenSumPT2 = 0.0;
+
   FracPt[0] = 0.0;
   FracPt[1] = 0.0;
   FracPt[2] = 0.0;
@@ -453,6 +492,10 @@ void Candidate::Clear(Option_t* option)
   Tau[2] = 0.0;
   Tau[3] = 0.0;
   Tau[4] = 0.0;
+
+  SoftDroppedJet.SetXYZT(0.0, 0.0, 0.0, 0.0);
+  SoftDroppedSubJet1.SetXYZT(0.0, 0.0, 0.0, 0.0);
+  SoftDroppedSubJet2.SetXYZT(0.0, 0.0, 0.0, 0.0);
 
   for(i = 0; i < 5; ++i)
   {

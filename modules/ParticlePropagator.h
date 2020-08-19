@@ -39,7 +39,6 @@ class TLorentzVector;
 class ParticlePropagator: public DelphesModule
 {
 public:
-
   ParticlePropagator();
   ~ParticlePropagator();
 
@@ -48,8 +47,7 @@ public:
   void Finish();
 
 private:
-
-  Double_t fRadius, fRadius2, fHalfLength;
+  Double_t fRadius, fRadius2, fRadiusMax, fHalfLength, fHalfLengthMax;
   Double_t fBz;
 
   TIterator *fItInputArray; //!
@@ -58,6 +56,7 @@ private:
   const TObjArray *fBeamSpotInputArray; //!
 
   TObjArray *fOutputArray; //!
+  TObjArray *fNeutralOutputArray; //!
   TObjArray *fChargedHadronOutputArray; //!
   TObjArray *fElectronOutputArray; //!
   TObjArray *fMuonOutputArray; //!

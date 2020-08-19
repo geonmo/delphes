@@ -1,15 +1,50 @@
+3.4.2:
+- added DenseTrackFilter for modelling tracking inefficiencies in boosted, dense environments
+- added detector cards for CLIC, HL-LHC and IDEA detectors
+- added muons to Tower collection used for jets reconstruction and MET calculation in the ATLAS card (#1118)
+- added Weight branch to HepMC
+- added Jet constituent output to FastJetFinder (allows more complex schemes of MET calculation) (#1349)
+- added Valencia jet algorithm from FastJet Contrib library and exclusive jet clustering for e+e- collisions (thanks to Ulrike Schnoor)
+- added possibility to read cross section from LHE files produced with Wizard event generator
+- added NeutralOutputArray in ParticlePropagator
+- added various information in StatusPidFilter (B and tau decay products, photons, SUSY particles, W daughters)
+- added DelphesProIO reader for ProIO data format (thanks to Sergei Chekanov)
+- improved TrackSmearing and updated TrackCountingBTagging (thanks to Kevin Pedro)
+- adapted Efficiency and DelphesFormula to long-lived particles
+- adapted Python analysis code to recent ROOT versions (thanks to Kerim Suruliz)
+- updated class version of LHEFEvent, HepMCEvent, Photon, Electron, Muon, Jet and Candidate (#1363)
+- updated FastJet library to 3.3.2 and FastJet Contrib library to 1.041
+- updated copyright and licensing information
+- removed dependency on the RPC and XDR libraries from STDHEP reader (#1310)
+- fixed Delphes class destructor (TList::Clear error) (#1320)
+
+3.4.1:
+- added RadiusMax and HalfLengthMax to ParticlePropagator to keep decay products of the long-lived particles (#1084)
+- fixed compilation of Validation.cpp
+- improved CMake configuration
+- fixed weights in LHEFReader
+- fixed bug in Charged Hadron Subtraction (CHS)
+- promoted z vertex resolution to TFormula
+- fixed bugs in DelphesDisplay
+- added jet substructure to default CMS and FCC cards
+- updated tracker and calorimeter resolution in the FCC card
+- added preliminary FCC-hh card with pile-up
+- corrected ECAL granularity in the ILD detector configuration
+
 3.4.0:
-- corrected granularities for ECAL and HCAL in CMS default cards
+- corrected granularities for ECAL and HCAL in ATLAS and CMS cards
+- included latest FCC-hh and CEPC detector cards
 - improved particle flow algorithm
 - updated FastJet library to 3.2.1
 - updated Nsubjettiness library to 2.2.4
-- added scripts that produce validation plots
+- added script that produce validation plots
 - added DelphesROOT reader
 - added TrackSmearing and BeamSpotFilter modules
 - completed TimeSmearing module
 - added preliminary version of vertex clustering algorithm in 3/4D, VertexFinder and VertexFinder4D (special thanks to A. Hart and L. Gray)
 - fixed muon efficiency at high energy
 - replaced gaussian smearing with lognormal in MomentumSmearing module
+- made pyROOT Example1.py compatible with ROOT
 
 3.3.3:
 - improved compatibility with ROOT >= 6.04

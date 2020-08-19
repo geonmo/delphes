@@ -209,7 +209,7 @@ PcmSuf = _rdict.pcm
 
 CXXFLAGS += $(ROOTCFLAGS) -Wno-write-strings -D_FILE_OFFSET_BITS=64 -DDROP_CGAL -I. -Iexternal -Iexternal/tcl
 DELPHES_LIBS = $(shell $(RC) --libs) -lEG $(SYSLIBS)
-DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml  $(SYSLIBS)
+DISPLAY_LIBS = $(shell $(RC) --evelibs) -lGuiHtml $(SYSLIBS)
 
 ifneq ($(CMSSW_FWLITE_INCLUDE_PATH),)
 HAS_CMSSW = true
@@ -224,17 +224,46 @@ endif
 OPT_LIBS += -lGenVector -lFWCoreFWLite -lDataFormatsFWLite -lDataFormatsCommon -lDataFormatsPatCandidates -lDataFormatsLuminosity -lSimDataFormatsGeneratorProducts -lCommonToolsUtils -lDataFormatsCommon
 endif
 
+# check consistency
+ifneq ($(PROMC),)
+ifneq ($(PROIO),)
+$(error Attention:  PROMC and PROIO env. variables are set simultaneously. You cannot compile ProMC and ProIO readers in one compilation process due to an inconsistency in protocol buffers libraries. The suggestion is to compile these two readers in two steps. First unset PROIO variable and then \"configure; make\". After this, unset PROMC, set PROIO,  and run \"configure; make\". During runs, make sure shared libraries are set correctly.)
+endif
+endif
+
 ifneq ($(PROMC),)
 HAS_PROMC = true
+$(info ProMC event reader is requested)
 CXXFLAGS += -I$(PROMC)/include -I$(PROMC)/src
 OPT_LIBS += -L$(PROMC)/lib -lpromc -lprotoc -lprotobuf -lprotobuf-lite -lcbook -lz
+endif
+
+ifneq ($(PROIO),)
+HAS_PROIO = true
+$(info ProIO reader is requested)
+ifeq ($(PROTOBUF),)
+$(error but PROTOBUF variable is not set.)
+endif
+PROTOBUF_FILE=$(PROTOBUF)/lib/libprotobuf.a
+ifeq ("$(wildcard $(PROTOBUF_FILE))","")
+$(error PROTOBUF variable is set, but it does not point to valid $(PROTOBUF_FILE))
+endif
+ifeq ($(LZ4),)
+$(error but LZ4 variable is not set.)
+endif
+LZ4_FILE=$(LZ4)/lib/liblz4.so
+ifeq ("$(wildcard $(LZ4_FILE))","")
+$(error LZ4 variable is set,  but it does not point to valid $(LZ4_FILE))
+endif
+CXXFLAGS += -I$(PROIO)/include -I$(PROTOBUF)/include -I$(LZ4)/include -I$(PROIO)/src
+OPT_LIBS += -L$(PROTOBUF)/lib -lprotobuf -L$(PROIO)/lib -lproio -lproio.pb -lz -L$(LZ4)/lib -llz4
 endif
 
 ifeq ($(HAS_PYTHIA8),true)
 ifneq ($(PYTHIA8),)
 CXXFLAGS += -I$(PYTHIA8)/include
 CXXFLAGS += -I$(PYTHIA8)/include/Pythia8
-OPT_LIBS += -L$(PYTHIA8)/lib -lpythia8 -ldl
+OPT_LIBS += -L$(PYTHIA8)/lib -lpythia8 -ldl -lz
 endif
 endif
 
@@ -252,7 +281,7 @@ DELPHESLIB = libDelphes.lib
 DISPLAY = libDelphesDisplay.$(DllSuf)
 DISPLAYLIB = libDelphesDisplay.lib
 
-VERSION = $(shell cat VERSION)
+VERSION = x.y.z
 DISTDIR = Delphes-$(VERSION)
 DISTTAR = $(DISTDIR).tar.gz
 
@@ -274,6 +303,11 @@ executableDeps {readers/DelphesProMC.cpp}
 puts {endif}
 puts {}
 
+puts {ifeq ($(HAS_PROIO),true)}
+executableDeps {readers/DelphesProIO.cpp}
+puts {endif}
+puts {}
+
 puts {ifeq ($(HAS_PYTHIA8),true)}
 executableDeps {readers/DelphesPythia8.cpp}
 dictDeps {DELPHES_DICT} {modules/Pythia8LinkDef.h}
@@ -286,9 +320,9 @@ dictDeps {FASTJET_DICT} {modules/FastJetLinkDef.h}
 
 dictDeps {DISPLAY_DICT} {display/DisplayLinkDef.h}
 
-sourceDeps {DELPHES} {classes/*.cc} {modules/*.cc} {external/ExRootAnalysis/*.cc} {external/Hector/*.cc}
+sourceDeps {DELPHES} {classes/*.cc} {modules/*.cc} {external/ExRootAnalysis/*.cc} {external/Hector/*.cc} {external/TrackCovariance/*.cc}
 
-sourceDeps {FASTJET} {modules/FastJet*.cc} {modules/RunPUPPI.cc} {external/PUPPI/*.cc} {external/fastjet/*.cc} {external/fastjet/tools/*.cc} {external/fastjet/plugins/*/*.cc} {external/fastjet/contribs/*/*.cc} 
+sourceDeps {FASTJET} {modules/FastJet*.cc} {modules/RunPUPPI.cc} {external/PUPPI/*.cc} {external/fastjet/*.cc} {external/fastjet/tools/*.cc} {external/fastjet/plugins/*/*.cc} {external/fastjet/contribs/*/*.cc}
 
 sourceDeps {DISPLAY} {display/*.cc}
 
@@ -399,7 +433,7 @@ distclean: clean
 dist:
 	@echo ">> Building $(DISTTAR)"
 	@mkdir -p $(DISTDIR)
-	@cp -a CHANGELOG CMakeLists.txt COPYING CREDITS DelphesEnv.sh README README_4LHCb VERSION Makefile MinBias.pileup configure cards classes converters display doc examples external modules python readers $(DISTDIR)
+	@cp -a AUTHORS CHANGELOG CMakeLists.txt COPYING DelphesEnv.sh LICENSE NOTICE README README_4LHCb Makefile MinBias.pileup configure cards classes converters display doc examples external modules python readers validation $(DISTDIR)
 	@find $(DISTDIR) -depth -name .\* -exec rm -rf {} \;
 	@tar -czf $(DISTTAR) $(DISTDIR)
 	@rm -rf $(DISTDIR)
@@ -412,11 +446,9 @@ dist:
 	@mkdir -p $(@D)
 	@echo ">> Generating $@"
 	@rootcint -f $@ -c -Iexternal $<
-	@echo "#define private public" > $@.arch
-	@echo "#define protected public" >> $@.arch
 	@mv $@ $@.base
-	@cat $@.arch $< $@.base > $@
-	@rm $@.arch $@.base
+	@cat $< $@.base > $@
+	@rm $@.base
 
 $(DELPHES_DICT_PCM): %Dict$(PcmSuf):
 	@echo ">> Copying $@"

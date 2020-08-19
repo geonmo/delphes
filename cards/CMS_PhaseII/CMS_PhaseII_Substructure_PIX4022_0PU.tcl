@@ -46,21 +46,25 @@ set ExecutionPath {
   LeptonFilterNoLep
   LeptonFilterLep
   RunPUPPIBase
+  RunPUPPIMerger
   RunPUPPI
 
   PhotonFilter
-
+  
+  PhotonCloner
   PhotonIsolation
   PhotonIsolationCHS
   PhotonEfficiency
   PhotonEfficiencyCHS
-
+  
+  ElectronCloner
   ElectronIsolation
   ElectronIsolationCHS
 
   ElectronEfficiency
   ElectronEfficiencyCHS
 
+  MuonCloner
   MuonIsolation
   MuonIsolationCHS
 
@@ -129,7 +133,7 @@ module PileUpMerger PileUpMerger {
   set VertexOutputArray vertices
 
   # pre-generated minbias input file
-  set PileUpFile ../eos/cms/store/group/upgrade/delphes/PhaseII/MinBias_100k.pileup
+  set PileUpFile /eos/cms/store/group/upgrade/delphes/PhaseII/MinBias_100k.pileup
   #set PileUpFile MinBias.pileup
 
   # average expected pile up
@@ -152,8 +156,8 @@ module PileUpMerger PileUpMerger {
 #################################
 
 module ParticlePropagator ParticlePropagator {
-  #set InputArray PileUpMerger/stableParticles
-  set InputArray Delphes/stableParticles
+  set InputArray PileUpMerger/stableParticles
+  #set InputArray Delphes/stableParticles
 
   set OutputArray stableParticles
   set ChargedHadronOutputArray chargedHadrons
@@ -536,7 +540,7 @@ module TrackPileUpSubtractor TrackPileUpSubtractor {
   set VertexInputArray PileUpMerger/vertices
   # assume perfect pile-up subtraction for tracks with |z| > fZVertexResolution
   # Z vertex resolution in m
-  set ZVertexResolution 0.0001
+  set ZVertexResolution {0.0001}
 }
 
 ########################
@@ -648,9 +652,15 @@ module RunPUPPI RunPUPPIBase {
   set OutputArrayNeutrals puppiNeutrals
 }
 
-module Merger RunPUPPI {
+module Merger RunPUPPIMerger {
   add InputArray RunPUPPIBase/PuppiParticles
   add InputArray LeptonFilterLep/eflowTracksLeptons
+  set OutputArray PuppiParticles
+}
+
+# need this because of leptons that were added back
+module RecoPuFilter RunPUPPI {
+  set InputArray RunPUPPIMerger/PuppiParticles
   set OutputArray PuppiParticles
 }
 
@@ -954,6 +964,34 @@ module PdgCodeFilter PhotonFilter {
 }
 
 
+##################
+# Muon cloner    #
+##################
+
+module Cloner MuonCloner {
+  set InputArray MuonMomentumSmearing/muons
+  set OutputArray muons
+}
+
+####################
+# Electron cloner  #
+####################
+
+module Cloner ElectronCloner {
+  set InputArray ElectronFilter/electrons
+  set OutputArray electrons
+}
+
+##################
+# Photon cloner  #
+##################
+
+module Cloner PhotonCloner {
+  set InputArray PhotonFilter/photons
+  set OutputArray photons
+}
+
+
 ####################
 # Photon isolation #
 ####################
@@ -992,7 +1030,7 @@ module Isolation PhotonIsolation {
 module Isolation PhotonIsolationCHS {
 
   # particle for which calculate the isolation
-  set CandidateInputArray PhotonFilter/photons
+  set CandidateInputArray PhotonCloner/photons
 
   # isolation collection
   set IsolationInputArray EFlowMerger/eflow
@@ -1078,12 +1116,16 @@ module Isolation ElectronIsolation {
 
 module Isolation ElectronIsolationCHS {
 
-  set CandidateInputArray ElectronFilter/electrons
+  set CandidateInputArray ElectronCloner/electrons
 
   # isolation collection
   set IsolationInputArray EFlowMerger/eflow
 
   set OutputArray electrons
+
+  # veto isolation cand. based on proximity to input cand.
+  set DeltaRMin 0.01
+  set UseMiniCone true
 
   set DeltaRMax 0.3
   set PTMin 1.0
@@ -1181,6 +1223,7 @@ module Efficiency ElectronEfficiencyCHS {
 }
 
 
+
 ##################
 # Muon isolation #
 ##################
@@ -1204,12 +1247,17 @@ module Isolation MuonIsolation {
 ######################
 
 module Isolation MuonIsolationCHS {
-  set CandidateInputArray MuonMomentumSmearing/muons
+  set CandidateInputArray MuonCloner/muons
 
   # isolation collection
   set IsolationInputArray EFlowMerger/eflow
 
   set OutputArray muons
+
+
+  # veto isolation cand. based on proximity to input cand.
+  set DeltaRMin 0.01
+  set UseMiniCone true
 
   set DeltaRMax 0.3
   set PTMin 1.0
